@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  pixel-ponies-bot:
+    build: .
+    container_name: pixel-ponies-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - pixel-ponies-network
+
+  mongodb:
+    image: mongo:7
+    container_name: pixel-ponies-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: pixel-ponies
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - pixel-ponies-network
+
+  # Optional: MongoDB Admin UI
+  mongo-express:
+    image: mongo-express:latest
+    container_name: pixel-ponies-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: 'true'
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: password123
+    depends_on:
+      - mongodb
+    networks:
+      - pixel-ponies-network
+    profiles:
+      - admin
+
+volumes:
+  mongodb_data:
+
+networks:
+  pixel-ponies-network:
+    driver: bridge
