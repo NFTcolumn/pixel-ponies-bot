@@ -10,15 +10,11 @@ class RaceService {
       { id: 5, name: 'Star Gazer', emoji: '⭐' },
       { id: 6, name: 'Flame Runner', emoji: '🔥' },
       { id: 7, name: 'Midnight Shadow', emoji: '🌙' },
-      { id: 8, name: 'Golden Arrow', emoji: '🏹' },
-      { id: 9, name: 'Storm Chaser', emoji: '🌪️' },
-      { id: 10, name: 'Wild Spirit', emoji: '🦅' },
-      { id: 11, name: 'Diamond Dash', emoji: '💎' },
-      { id: 12, name: 'Phoenix Rising', emoji: '🔥' },
-      { id: 13, name: 'Ice Breaker', emoji: '❄️' },
-      { id: 14, name: 'Rocket Rider', emoji: '🚀' },
-      { id: 15, name: 'Solar Flare', emoji: '☀️' },
-      { id: 16, name: 'Cosmic Cruiser', emoji: '🌌' }
+      { id: 8, name: 'Golden Galloper', emoji: '🏆' },
+      { id: 9, name: 'Rainbow Dash', emoji: '🌈' },
+      { id: 10, name: 'Wind Walker', emoji: '💨' },
+      { id: 11, name: 'Diamond Dust', emoji: '💎' },
+      { id: 12, name: 'Cosmic Comet', emoji: '☄️' }
     ];
   }
 
@@ -28,23 +24,48 @@ class RaceService {
     }).sort({ startTime: -1 });
   }
 
-  async createRace() {
+  async createRace(bot = null) {
     const raceId = `race_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const startTime = new Date();
     
-    // Generate random odds for each horse
+    // Prepare horses for race
     const horses = this.horses.map(horse => ({
       ...horse,
-      odds: +(2 + Math.random() * 4).toFixed(1), // 2.0x to 6.0x odds
       finishTime: null,
       position: null
     }));
 
-    // Dynamic prize pool: 700 base + (100 * group members)
-    // For now using 30 members as mentioned, later can get actual count
-    const basePot = 700;
-    const groupMembers = 30; // TODO: Get actual member count
-    const prizePool = basePot + (groupMembers * 100);
+    // Dynamic prize pool with tiered scaling
+    let groupMembers = 50; // Default fallback
+    try {
+      if (bot && process.env.MAIN_CHANNEL_ID) {
+        const memberCount = await bot.getChatMemberCount(process.env.MAIN_CHANNEL_ID);
+        groupMembers = memberCount;
+        console.log(`📊 Current group members: ${groupMembers}`);
+      }
+    } catch (error) {
+      console.error('Error getting member count:', error);
+    }
+    
+    // Tiered prize pool calculation (cumulative)
+    // 1-50: 1000 PONY each = 50,000
+    // 51-100: 500 each = 25,000 (total: 75,000)  
+    // 101-150: 250 each = 12,500 (total: 87,500), etc.
+    let prizePool = 0;
+    let currentTierStart = 1;
+    let basePonyPerMember = 1000;
+    
+    while (currentTierStart <= groupMembers) {
+      const tierEnd = Math.min(currentTierStart + 49, groupMembers); // 50 members per tier
+      const membersInTier = tierEnd - currentTierStart + 1;
+      const ponyForThisTier = membersInTier * basePonyPerMember;
+      prizePool += ponyForThisTier;
+      
+      console.log(`  Tier ${currentTierStart}-${tierEnd}: ${membersInTier} members × ${basePonyPerMember} = ${ponyForThisTier} PONY (running total: ${prizePool})`);
+      
+      currentTierStart += 50;
+      basePonyPerMember = Math.floor(basePonyPerMember / 2); // Half for next tier
+    }
 
     const race = new Race({
       raceId,
@@ -55,7 +76,7 @@ class RaceService {
     });
 
     await race.save();
-    console.log(`🏁 Created race ${raceId}`);
+    console.log(`🏁 Created race ${raceId} with ${prizePool} $PONY total (${groupMembers} members, tiered scaling)`);
     return race;
   }
 
@@ -68,7 +89,6 @@ class RaceService {
       id: horse.id,
       name: horse.name,
       emoji: horse.emoji,
-      odds: horse.odds,
       finishTime: 60 + Math.random() * 30, // 60-90 seconds
       position: null
     }));
