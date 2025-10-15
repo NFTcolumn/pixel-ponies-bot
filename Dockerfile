@@ -1,13 +1,16 @@
-FROM node:18-alpine
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
 
 # Create app directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm install --only=production
+RUN pnpm install --prod
 
 # Copy source code
 COPY src ./src
@@ -31,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "console.log('Health check')" || exit 1
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
