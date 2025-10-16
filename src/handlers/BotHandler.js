@@ -169,15 +169,16 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
 
       if (user) {
         user.solanaAddress = walletAddress;
-        user.username = msg.from.username;
-        user.firstName = msg.from.first_name;
-        user.lastName = msg.from.last_name;
+        // Always update username/name info in case it changed
+        user.username = msg.from.username || user.username;
+        user.firstName = msg.from.first_name || user.firstName;
+        user.lastName = msg.from.last_name || user.lastName;
         await ReferralService.ensureReferralCode(user);
       } else {
         user = new User({
           telegramId: userId,
-          username: msg.from.username,
-          firstName: msg.from.first_name,
+          username: msg.from.username || 'UnknownUser',
+          firstName: msg.from.first_name || 'User',
           lastName: msg.from.last_name,
           solanaAddress: walletAddress,
           referralCode: ReferralService.generateReferralCode(userId)
@@ -405,6 +406,27 @@ Join the most exciting crypto racing! 🚀
     }
   }
 
+  async updateUserInfo(user, msgFrom) {
+    let updated = false;
+    if (msgFrom.username && user.username !== msgFrom.username) {
+      user.username = msgFrom.username;
+      updated = true;
+    }
+    if (msgFrom.first_name && user.firstName !== msgFrom.first_name) {
+      user.firstName = msgFrom.first_name;
+      updated = true;
+    }
+    if (msgFrom.last_name !== undefined && user.lastName !== msgFrom.last_name) {
+      user.lastName = msgFrom.last_name;
+      updated = true;
+    }
+    
+    if (updated) {
+      await user.save();
+      console.log(`✅ Updated user info for ${user.telegramId}: ${user.username || user.firstName}`);
+    }
+  }
+
   async handleReferral(msg) {
     const userId = msg.from.id.toString();
     
@@ -413,6 +435,9 @@ Join the most exciting crypto racing! 🚀
       if (!user) {
         return this.bot.sendMessage(msg.chat.id, '❌ Please register first with /register YOUR_WALLET');
       }
+
+      // Update user info
+      await this.updateUserInfo(user, msg.from);
 
       const referralCode = await ReferralService.ensureReferralCode(user);
       const referralLink = ReferralService.getReferralLink(referralCode);

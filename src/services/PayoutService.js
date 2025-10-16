@@ -60,6 +60,27 @@ class PayoutService {
     const secondPlacePrize = Math.floor(race.prizePool * 0.125);
     const thirdPlacePrize = Math.floor(race.prizePool * 0.025);
     
+    // Check if nobody won any prizes
+    const totalWinners = firstPlaceWinners.length + secondPlaceWinners.length + thirdPlaceWinners.length;
+    
+    if (totalWinners === 0) {
+      await bot.sendMessage(channelId, `
+😢 **NO WINNERS THIS RACE!** 
+
+${race.participants.length} players participated but nobody picked the winning horses! 🐎
+
+🏆 **Winner:** ${winner.name} ${winner.emoji}
+🥈 **Second:** ${second.name} ${second.emoji}  
+🥉 **Third:** ${third.name} ${third.emoji}
+
+💰 Prize pool of ${race.prizePool} $PONY rolls over to next race!
+🍀 Better luck next time!
+
+🏁 **Next race starting soon!**
+`);
+      return;
+    }
+    
     await bot.sendMessage(channelId, `
 🎉 **RACE PAYOUTS**
 

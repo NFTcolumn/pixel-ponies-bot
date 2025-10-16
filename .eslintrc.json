@@ -8,6 +8,7 @@
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
+  "ignorePatterns": ["*.backup.js", "*.backup"],
   "rules": {
     "no-unused-vars": "warn",
     "no-console": "off"

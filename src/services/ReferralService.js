@@ -8,6 +8,18 @@ class ReferralService {
     return `PP${userHash}${timestamp}`.toUpperCase();
   }
 
+  async ensureReferralCode(user) {
+    if (!user.referralCode) {
+      user.referralCode = this.generateReferralCode(user.telegramId);
+      await user.save();
+    }
+    return user.referralCode;
+  }
+
+  getReferralLink(referralCode) {
+    return `https://t.me/${process.env.BOT_USERNAME}?start=${referralCode}`;
+  }
+
   async processReferralReward(referredUser, chatId, bot) {
     if (!referredUser.referredBy) return;
     

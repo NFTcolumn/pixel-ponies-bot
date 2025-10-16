@@ -52,9 +52,35 @@ class PixelPoniesBot {
 
       console.log('🚀 Pixel Ponies Bot is running successfully!');
       
+      // Add error handling for bot polling
+      this.bot.on('polling_error', (error) => {
+        console.error('🚨 Polling error:', error.message);
+        console.error('📋 Full polling error:', error);
+        // Don't exit on polling errors, just log them
+      });
+
+      // Handle uncaught exceptions
+      process.on('uncaughtException', (error) => {
+        console.error('🚨 Uncaught Exception:', error);
+        console.error('📋 Stack:', error.stack);
+        // Don't exit immediately, let Render restart
+      });
+
+      process.on('unhandledRejection', (reason, promise) => {
+        console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+        // Don't exit immediately, let Render restart
+      });
+
       // Add graceful shutdown
       process.on('SIGTERM', () => {
         console.log('🛑 Received SIGTERM, shutting down gracefully...');
+        this.bot?.stopPolling();
+        mongoose.disconnect();
+        process.exit(0);
+      });
+
+      process.on('SIGINT', () => {
+        console.log('🛑 Received SIGINT, shutting down gracefully...');
         this.bot?.stopPolling();
         mongoose.disconnect();
         process.exit(0);
