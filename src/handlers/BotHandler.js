@@ -4,6 +4,7 @@ import RaceService from '../services/RaceService.js';
 import SolanaService from '../services/SolanaService.js';
 import ReferralService from '../services/ReferralService.js';
 import PayoutService from '../services/PayoutService.js';
+import cron from 'node-cron';
 
 class BotHandler {
   constructor(bot) {
@@ -77,6 +78,12 @@ class BotHandler {
     this.bot.onText(/\/list_users/, (msg) => {
       if (adminIds.includes(msg.from.id.toString())) {
         this.handleListUsers(msg);
+      }
+    });
+
+    this.bot.onText(/\/admin_race/, (msg) => {
+      if (adminIds.includes(msg.from.id.toString())) {
+        this.handleAdminRace(msg);
       }
     });
   }
@@ -737,32 +744,67 @@ Race, win, earn! 🏆`;
   }
 
   startRaceScheduler() {
-    const runRaceLoop = async () => {
-      try {
-        console.log('🚀 Creating new race...');
-        const race = await RaceService.createRace(this.bot);
-        console.log(`✅ Created race: ${race.raceId} with ${race.prizePool} $PONY`);
-        await this.announceNewRace(race);
-        
-        setTimeout(async () => {
-          console.log(`🏁 Running race: ${race.raceId}`);
-          await this.runLiveRace(race.raceId);
-          
-          setTimeout(() => {
-            runRaceLoop();
-          }, 60000); // 1 minute break between races
-          
-        }, 300000); // 5 minutes
-        
-      } catch (error) {
-        console.error('❌ Race loop error:', error);
-        setTimeout(() => runRaceLoop(), 30000);
-      }
-    };
+    console.log('🕐 Starting race scheduler - 2 races per day + hourly reminders');
     
-    setTimeout(() => {
-      runRaceLoop();
-    }, 5000);
+    // Schedule races twice daily: 12:00 PM and 8:00 PM UTC
+    cron.schedule('0 12,20 * * *', async () => {
+      await this.runScheduledRace();
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+    
+    // Schedule hourly reminders at :30 minutes past each hour
+    cron.schedule('30 * * * *', async () => {
+      await this.sendHourlyReminder();
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+    
+    console.log('✅ Scheduler started:');
+    console.log('  🏇 Races: Daily at 12:00 PM & 8:00 PM UTC');
+    console.log('  📢 Reminders: Every hour at :30');
+  }
+
+  async runScheduledRace() {
+    try {
+      console.log('🚀 Running scheduled race...');
+      const race = await RaceService.createRace(this.bot);
+      console.log(`✅ Created race: ${race.raceId} with ${race.prizePool} $PONY`);
+      await this.announceNewRace(race);
+      
+      // Run the race after 15 minutes (extended betting time)
+      setTimeout(async () => {
+        console.log(`🏁 Running scheduled race: ${race.raceId}`);
+        await this.runLiveRace(race.raceId);
+      }, 900000); // 15 minutes
+      
+    } catch (error) {
+      console.error('❌ Scheduled race error:', error);
+    }
+  }
+
+  async sendHourlyReminder() {
+    const channelId = process.env.MAIN_CHANNEL_ID;
+    if (!channelId) return;
+    
+    try {
+      const messages = [
+        '🏇 **Pixel Ponies is LIVE!** Next race at 12:00 PM or 8:00 PM UTC! Join now with `/register` and earn FREE $PONY! 🪙',
+        '🎁 **FREE $PONY AWAITS!** Register your wallet, follow @pxponies, and win real crypto in our daily races! 🏆',
+        '🚀 **Daily Crypto Racing!** Two chances to win big every day! Get started with `/register YOUR_WALLET` 💰',
+        '🏁 **Pixel Ponies Racing Club!** Free to join, free to play, real crypto rewards! Next race coming up! 🎯'
+      ];
+      
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+      
+      await this.bot.sendMessage(channelId, randomMessage, { parse_mode: 'Markdown' });
+      console.log('📢 Sent hourly reminder');
+      
+    } catch (error) {
+      console.error('❌ Hourly reminder error:', error);
+    }
   }
 
   async announceNewRace(race) {
@@ -776,7 +818,7 @@ Race, win, earn! 🏆`;
     });
 
     const message = `
-🚨 **RACE IS STARTING NOW!** 🚨
+🚨 **DAILY RACE IS STARTING!** 🚨
 📺 **LIVE FROM PIXEL PONIES RACETRACK** 
 
 🏁 Race ID: ${race.raceId}
@@ -785,12 +827,12 @@ Race, win, earn! 🏆`;
 ${horsesList}
 
 💰 **Prize Pool:** ${race.prizePool} $PONY
-⚡ **5 MINUTES** to enter!
+⏰ **15 MINUTES** to enter!
 
 🎯 Use /horse NUMBER to pick your champion!
 🐦 Tweet your pick and /verify your tweet!
 
-**AND THEY'RE AT THE STARTING GATE!** 🏁
+**DAILY RACES: 12:00 PM & 8:00 PM UTC** 🏁
 `;
 
     await this.bot.sendMessage(channelId, message, { parse_mode: 'Markdown' });
@@ -844,6 +886,17 @@ ${horsesList}
 `, { parse_mode: 'Markdown' });
 
     await PayoutService.processRacePayouts(race, channelId, this.bot);
+  }
+
+  async handleAdminRace(msg) {
+    try {
+      await this.bot.sendMessage(msg.chat.id, '🏇 **Admin Manual Race Triggered!**');
+      await this.runScheduledRace();
+      await this.bot.sendMessage(msg.chat.id, '✅ Manual race started successfully!');
+    } catch (error) {
+      console.error('Admin manual race error:', error);
+      await this.bot.sendMessage(msg.chat.id, '❌ Error starting manual race');
+    }
   }
 }
 
