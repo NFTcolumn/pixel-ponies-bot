@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import Race from '../models/Race.js';
 import TempSelection from '../models/TempSelection.js';
 import RaceService from '../services/RaceService.js';
 import SolanaService from '../services/SolanaService.js';
@@ -11,6 +12,7 @@ class BotHandler {
     this.bot = bot;
     this.awaitingTwitterHandle = new Set();
     this.setupCommands();
+    this.checkAndFinishIncompleteRaces();
     this.startRaceScheduler();
   }
 
@@ -39,6 +41,9 @@ class BotHandler {
     
     // Help command
     this.bot.onText(/\/howtoplay|\/help/, (msg) => this.handleHowToPlay(msg));
+    
+    // Race time command
+    this.bot.onText(/\/racetime/, (msg) => this.handleRaceTime(msg));
     
     // Admin commands (moved to separate method for clarity)
     this.setupAdminCommands();
@@ -126,6 +131,7 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
 /register - Start registration (wallet + Twitter)
 /howtoplay - Complete step-by-step guide
 /race - Current race info
+/racetime - Next race schedule & countdown
 /balance - Your stats
 /airdrop - Check bonus status
 /referral - Your referral stats & link
@@ -305,13 +311,18 @@ ${horsesList}
         { upsert: true }
       );
 
-      const tweetText = `🏇 I'm backing ${horse.name} ${horse.emoji} in the #PixelPonies race!
+      const tweetText = `🐎 I bet on ${horse.name} ${horse.emoji} on #PixelPonies! 
 
-🎯 Race ID: ${race.raceId}
-🐎 My Champion: #${horseNumber} ${horse.name}
+🏆 How To WIN $PONY 
 
-Join the most exciting crypto racing! 🚀
-#SolanaMemes #CryptoRacing $PONY`;
+1. Join here 👉 https://t.me/pixelponies 
+
+2. PLAY and EARN 💰 500 $PONY for every race you enter! 🎯
+
+#crypto #Games #PumpFun 🚀
+$PONY $SOL $BASE #MakeCryptoFunAgain 💎
+
+🛒 BUY $PONY: https://pump.fun/coin/4RuwkFn3LStf1YeMi3b46qtpyW845bHayog3P8Qqpump`;
 
       const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
       const keyboard = {
@@ -743,12 +754,141 @@ Race, win, earn! 🏆`;
     await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
   }
 
+  async handleRaceTime(msg) {
+    try {
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      const utcMinute = now.getUTCMinutes();
+      
+      // Calculate next race time
+      let nextRaceHour, nextRacePeriod, hoursUntil, minutesUntil;
+      
+      if (utcHour < 12) {
+        // Next race is at 12:00 PM UTC today
+        nextRaceHour = 12;
+        nextRacePeriod = 'PM';
+        hoursUntil = 12 - utcHour;
+        minutesUntil = -utcMinute;
+      } else {
+        // Next race is at 12:00 AM UTC tomorrow
+        nextRaceHour = 12;
+        nextRacePeriod = 'AM';
+        hoursUntil = 24 - utcHour;
+        minutesUntil = -utcMinute;
+      }
+      
+      if (minutesUntil < 0) {
+        hoursUntil -= 1;
+        minutesUntil += 60;
+      }
+      
+      const nextRaceTime = new Date();
+      nextRaceTime.setUTCHours(nextRaceHour === 12 && nextRacePeriod === 'AM' ? 0 : nextRaceHour);
+      nextRaceTime.setUTCMinutes(0);
+      nextRaceTime.setUTCSeconds(0);
+      
+      if (nextRacePeriod === 'AM' && utcHour >= 12) {
+        nextRaceTime.setUTCDate(nextRaceTime.getUTCDate() + 1);
+      }
+      
+      const timeString = hoursUntil === 0 ? 
+        `${minutesUntil} minutes` : 
+        `${hoursUntil} hours and ${minutesUntil} minutes`;
+        
+      const message = `
+🕐 **NEXT RACE SCHEDULE**
+
+⏰ **Next Race:** ${nextRaceHour}:00 ${nextRacePeriod} UTC
+🕐 **Time Until Race:** ${timeString}
+📅 **Date:** ${nextRaceTime.toDateString()}
+
+🏇 **DAILY SCHEDULE:**
+• 12:00 AM UTC (Midnight)
+• 12:00 PM UTC (Noon)
+
+⏱️ **Race Duration:** 15 minutes betting + race
+💰 **Current Jackpot:** Up to 500,000 $PONY
+
+🎯 Use \`/register YOUR_WALLET\` to join!
+🔄 Use \`/racetime\` anytime for updates
+`;
+
+      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Race time error:', error);
+      await this.bot.sendMessage(msg.chat.id, '❌ Error getting race time info');
+    }
+  }
+
+  async checkAndFinishIncompleteRaces() {
+    try {
+      console.log('🔍 Checking for incomplete races...');
+      
+      // Find races that are not finished and were created more than 30 minutes ago
+      const cutoffTime = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
+      const incompleteRaces = await Race.find({
+        status: { $ne: 'finished' },
+        createdAt: { $lt: cutoffTime }
+      });
+
+      if (incompleteRaces.length === 0) {
+        console.log('✅ No incomplete races found');
+        return;
+      }
+
+      console.log(`🏁 Found ${incompleteRaces.length} incomplete race(s), finishing them...`);
+
+      for (const race of incompleteRaces) {
+        console.log(`🏃 Finishing race ${race.raceId} (status: ${race.status})`);
+        
+        if (race.status === 'betting_open') {
+          // Race never started, just finish it
+          const finishedRace = await RaceService.finishRace(race.raceId);
+          
+          const channelId = process.env.MAIN_CHANNEL_ID;
+          if (channelId) {
+            // Announce the results
+            const winner = finishedRace.horses.find(h => h.position === 1);
+            const second = finishedRace.horses.find(h => h.position === 2);
+            const third = finishedRace.horses.find(h => h.position === 3);
+
+            await this.bot.sendMessage(channelId, `
+🏁 **RACE ${race.raceId} COMPLETED** (System Recovery)
+
+🥇 **WINNER:** ${winner.emoji} ${winner.name} (${winner.finishTime.toFixed(2)}s)
+🥈 **PLACE:** ${second.emoji} ${second.name} (${second.finishTime.toFixed(2)}s)
+🥉 **SHOW:** ${third.emoji} ${third.name} (${third.finishTime.toFixed(2)}s)
+`, { parse_mode: 'Markdown' });
+
+            // Process payouts
+            await PayoutService.processRacePayouts(finishedRace, channelId, this.bot);
+          }
+          
+          console.log(`✅ Completed race ${race.raceId}`);
+        }
+      }
+
+      console.log('🎉 All incomplete races have been resolved!');
+      
+    } catch (error) {
+      console.error('❌ Error checking incomplete races:', error);
+    }
+  }
+
   startRaceScheduler() {
     console.log('🕐 Starting race scheduler - 2 races per day + hourly reminders');
     
-    // Schedule races twice daily: 12:00 PM and 8:00 PM UTC
-    cron.schedule('0 12,20 * * *', async () => {
+    // Schedule races twice daily: 12:00 AM and 12:00 PM UTC
+    cron.schedule('0 0,12 * * *', async () => {
       await this.runScheduledRace();
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+
+    // 5-minute warnings before races: 11:55 PM and 11:55 AM UTC
+    cron.schedule('55 23,11 * * *', async () => {
+      await this.sendRaceWarning();
     }, {
       scheduled: true,
       timezone: "UTC"
@@ -763,7 +903,8 @@ Race, win, earn! 🏆`;
     });
     
     console.log('✅ Scheduler started:');
-    console.log('  🏇 Races: Daily at 12:00 PM & 8:00 PM UTC');
+    console.log('  🏇 Races: Daily at 12:00 AM & 12:00 PM UTC');
+    console.log('  ⚠️  5-min warnings: 11:55 PM & 11:55 AM UTC');
     console.log('  📢 Reminders: Every hour at :30');
   }
 
@@ -785,13 +926,48 @@ Race, win, earn! 🏆`;
     }
   }
 
+  async sendRaceWarning() {
+    const channelId = process.env.MAIN_CHANNEL_ID;
+    if (!channelId) return;
+    
+    try {
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      const nextRaceTime = utcHour === 23 ? '12:00 AM' : '12:00 PM';
+      
+      const message = `
+⚠️ **5 MINUTE WARNING!** ⚠️
+
+🏇 Next race starts at **${nextRaceTime} UTC**
+⏰ **5 MINUTES** to register and enter!
+
+🚀 **QUICK START:**
+1. \`/register YOUR_WALLET\` 
+2. Follow @pxponies
+3. Enter Twitter handle
+4. Pick your horse when race starts!
+
+💰 **Jackpot: Up to 500,000 $PONY!**
+🎁 **FREE registration + welcome bonus!**
+
+**DON'T MISS OUT!** 🏆
+`;
+
+      await this.bot.sendMessage(channelId, message, { parse_mode: 'Markdown' });
+      console.log(`⚠️ Sent 5-minute race warning for ${nextRaceTime}`);
+      
+    } catch (error) {
+      console.error('❌ Race warning error:', error);
+    }
+  }
+
   async sendHourlyReminder() {
     const channelId = process.env.MAIN_CHANNEL_ID;
     if (!channelId) return;
     
     try {
       const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Next race at 12:00 PM or 8:00 PM UTC! Join now with `/register` and earn FREE $PONY! 🪙',
+        '🏇 **Pixel Ponies is LIVE!** Next race at 12:00 AM or 12:00 PM UTC! Join now with `/register` and earn FREE $PONY! 🪙',
         '🎁 **FREE $PONY AWAITS!** Register your wallet, follow @pxponies, and win real crypto in our daily races! 🏆',
         '🚀 **Daily Crypto Racing!** Two chances to win big every day! Get started with `/register YOUR_WALLET` 💰',
         '🏁 **Pixel Ponies Racing Club!** Free to join, free to play, real crypto rewards! Next race coming up! 🎯'
@@ -832,7 +1008,7 @@ ${horsesList}
 🎯 Use /horse NUMBER to pick your champion!
 🐦 Tweet your pick and /verify your tweet!
 
-**DAILY RACES: 12:00 PM & 8:00 PM UTC** 🏁
+**DAILY RACES: 12:00 AM & 12:00 PM UTC** 🏁
 `;
 
     await this.bot.sendMessage(channelId, message, { parse_mode: 'Markdown' });
