@@ -47,25 +47,9 @@ class RaceService {
       console.error('Error getting member count:', error);
     }
     
-    // Tiered prize pool calculation (cumulative)
-    // 1-50: 1000 PONY each = 50,000
-    // 51-100: 500 each = 25,000 (total: 75,000)  
-    // 101-150: 250 each = 12,500 (total: 87,500), etc.
-    let prizePool = 0;
-    let currentTierStart = 1;
-    let basePonyPerMember = 1000;
-    
-    while (currentTierStart <= groupMembers) {
-      const tierEnd = Math.min(currentTierStart + 49, groupMembers); // 50 members per tier
-      const membersInTier = tierEnd - currentTierStart + 1;
-      const ponyForThisTier = membersInTier * basePonyPerMember;
-      prizePool += ponyForThisTier;
-      
-      console.log(`  Tier ${currentTierStart}-${tierEnd}: ${membersInTier} members × ${basePonyPerMember} = ${ponyForThisTier} PONY (running total: ${prizePool})`);
-      
-      currentTierStart += 50;
-      basePonyPerMember = Math.floor(basePonyPerMember / 2); // Half for next tier
-    }
+    // Fixed prize pool of 500,000 $PONY per race
+    const prizePool = 500000;
+    console.log(`💰 Fixed prize pool set to ${prizePool} $PONY (${groupMembers} members in group)`);
 
     const race = new Race({
       raceId,

@@ -757,57 +757,65 @@ Race, win, earn! 🏆`;
   async handleRaceTime(msg) {
     try {
       const now = new Date();
-      const utcHour = now.getUTCHours();
-      const utcMinute = now.getUTCMinutes();
+      const currentTimeUTC = now.getTime();
       
-      // Calculate next race time
-      let nextRaceHour, nextRacePeriod, hoursUntil, minutesUntil;
+      // Create next race times (12:00 AM and 12:00 PM UTC)
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0); // Today at midnight UTC
       
-      if (utcHour < 12) {
-        // Next race is at 12:00 PM UTC today
-        nextRaceHour = 12;
-        nextRacePeriod = 'PM';
-        hoursUntil = 12 - utcHour;
-        minutesUntil = -utcMinute;
+      const todayNoon = new Date(today);
+      todayNoon.setUTCHours(12, 0, 0, 0); // Today at noon UTC
+      
+      const tomorrowMidnight = new Date(today);
+      tomorrowMidnight.setUTCDate(today.getUTCDate() + 1);
+      tomorrowMidnight.setUTCHours(0, 0, 0, 0); // Tomorrow at midnight UTC
+      
+      // Find the next race
+      let nextRace;
+      if (currentTimeUTC < today.getTime()) {
+        // We're before today's midnight race (shouldn't happen, but just in case)
+        nextRace = today;
+      } else if (currentTimeUTC < todayNoon.getTime()) {
+        // Next race is today at noon
+        nextRace = todayNoon;
       } else {
-        // Next race is at 12:00 AM UTC tomorrow
-        nextRaceHour = 12;
-        nextRacePeriod = 'AM';
-        hoursUntil = 24 - utcHour;
-        minutesUntil = -utcMinute;
+        // Next race is tomorrow at midnight
+        nextRace = tomorrowMidnight;
       }
       
-      if (minutesUntil < 0) {
-        hoursUntil -= 1;
-        minutesUntil += 60;
+      // Calculate time until next race
+      const msUntilRace = nextRace.getTime() - currentTimeUTC;
+      const hoursUntil = Math.floor(msUntilRace / (1000 * 60 * 60));
+      const minutesUntil = Math.floor((msUntilRace % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Format the next race time
+      const raceHour = nextRace.getUTCHours();
+      const racePeriod = raceHour === 0 ? 'AM (Midnight)' : 'PM (Noon)';
+      const raceTime = raceHour === 0 ? '12:00' : '12:00';
+      
+      // Format countdown
+      let timeString;
+      if (hoursUntil === 0) {
+        timeString = `${minutesUntil} minutes`;
+      } else if (minutesUntil === 0) {
+        timeString = `${hoursUntil} hours`;
+      } else {
+        timeString = `${hoursUntil} hours and ${minutesUntil} minutes`;
       }
       
-      const nextRaceTime = new Date();
-      nextRaceTime.setUTCHours(nextRaceHour === 12 && nextRacePeriod === 'AM' ? 0 : nextRaceHour);
-      nextRaceTime.setUTCMinutes(0);
-      nextRaceTime.setUTCSeconds(0);
-      
-      if (nextRacePeriod === 'AM' && utcHour >= 12) {
-        nextRaceTime.setUTCDate(nextRaceTime.getUTCDate() + 1);
-      }
-      
-      const timeString = hoursUntil === 0 ? 
-        `${minutesUntil} minutes` : 
-        `${hoursUntil} hours and ${minutesUntil} minutes`;
-        
       const message = `
-🕐 **NEXT RACE SCHEDULE**
+🕐 **NEXT RACE COUNTDOWN**
 
-⏰ **Next Race:** ${nextRaceHour}:00 ${nextRacePeriod} UTC
-🕐 **Time Until Race:** ${timeString}
-📅 **Date:** ${nextRaceTime.toDateString()}
+⏰ **Next Race:** ${raceTime} ${racePeriod} UTC
+⏳ **Time Until Race:** ${timeString}
+📅 **Date:** ${nextRace.toDateString()}
 
 🏇 **DAILY SCHEDULE:**
-• 12:00 AM UTC (Midnight)
-• 12:00 PM UTC (Noon)
+• 🌙 12:00 AM UTC (Midnight)
+• ☀️ 12:00 PM UTC (Noon)
 
-⏱️ **Race Duration:** 15 minutes betting + race
-💰 **Current Jackpot:** Up to 500,000 $PONY
+⏱️ **Betting:** Open until race starts
+💰 **Prize Pool:** 500,000 $PONY
 
 🎯 Use \`/register YOUR_WALLET\` to join!
 🔄 Use \`/racetime\` anytime for updates
