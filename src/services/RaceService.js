@@ -19,9 +19,17 @@ class RaceService {
   }
 
   async getCurrentRace() {
-    return await Race.findOne({ 
+    const race = await Race.findOne({ 
       status: { $in: ['betting_open', 'racing'] } 
     }).sort({ startTime: -1 });
+    
+    if (race) {
+      console.log(`🔍 Found current race: ${race.raceId} (status: ${race.status}, participants: ${race.participants.length})`);
+    } else {
+      console.log('🔍 No current active race found');
+    }
+    
+    return race;
   }
 
   async createRace(bot = null) {
@@ -56,17 +64,35 @@ class RaceService {
       startTime,
       status: 'betting_open',
       horses,
-      prizePool
+      prizePool,
+      participants: [] // Explicitly initialize empty participants array
     });
 
-    await race.save();
-    console.log(`🏁 Created race ${raceId} with ${prizePool} $PONY total (${groupMembers} members, tiered scaling)`);
-    return race;
+    try {
+      await race.save();
+      console.log(`✅ Created race ${raceId} with ${prizePool} $PONY total (${groupMembers} members)`);
+      console.log(`💾 Race saved to database with empty participants array`);
+      return race;
+    } catch (error) {
+      console.error(`❌ Failed to save new race ${raceId}:`, error);
+      throw error;
+    }
   }
 
   async runRace(raceId) {
     const race = await Race.findOne({ raceId });
-    if (!race) return null;
+    if (!race) {
+      console.log(`❌ Race ${raceId} not found`);
+      return null;
+    }
+
+    console.log(`🏁 Running race ${raceId} with ${race.participants.length} participants`);
+    if (race.participants.length > 0) {
+      console.log('📋 Participants:');
+      race.participants.forEach((p, i) => {
+        console.log(`  ${i+1}. ${p.username} (${p.userId}) - Horse #${p.horseId} ${p.horseName}`);
+      });
+    }
 
     // Simulate race by generating random finish times
     const horses = race.horses.map(horse => ({
@@ -92,35 +118,103 @@ class RaceService {
     race.status = 'finished';
     race.endTime = new Date();
 
-    await race.save();
-    console.log(`🏁 Race ${raceId} finished`);
-    console.log(`🏆 Winner: ${horses[0].name} ${horses[0].emoji} - ${horses[0].finishTime.toFixed(2)}s`);
-    console.log(`🥈 Second: ${horses[1].name} ${horses[1].emoji} - ${horses[1].finishTime.toFixed(2)}s`);
-    console.log(`🥉 Third: ${horses[2].name} ${horses[2].emoji} - ${horses[2].finishTime.toFixed(2)}s`);
-    return race;
+    try {
+      await race.save();
+      console.log(`✅ Race ${raceId} finished and saved to database`);
+      console.log(`🏆 Winner: ${horses[0].name} ${horses[0].emoji} - ${horses[0].finishTime.toFixed(2)}s`);
+      console.log(`🥈 Second: ${horses[1].name} ${horses[1].emoji} - ${horses[1].finishTime.toFixed(2)}s`);
+      console.log(`🥉 Third: ${horses[2].name} ${horses[2].emoji} - ${horses[2].finishTime.toFixed(2)}s`);
+      console.log(`💾 Final participant count saved: ${race.participants.length}`);
+      return race;
+    } catch (error) {
+      console.error(`❌ Failed to save race results for ${raceId}:`, error);
+      return race; // Return the race even if save failed
+    }
   }
 
   async addParticipant(raceId, userId, username, horseId, tweetUrl) {
+    console.log(`🎯 Adding participant: ${username} (${userId}) to race ${raceId}, horse #${horseId}`);
+    
     const race = await Race.findOne({ raceId });
-    if (!race || race.status !== 'betting_open') return false;
+    if (!race || race.status !== 'betting_open') {
+      console.log(`❌ Cannot add participant: race ${raceId} not found or not open (status: ${race?.status})`);
+      return false;
+    }
 
     const horse = race.horses.find(h => h.id === horseId);
-    if (!horse) return false;
+    if (!horse) {
+      console.log(`❌ Cannot add participant: horse #${horseId} not found`);
+      return false;
+    }
 
     // Check if user already participated
     const existingParticipant = race.participants.find(p => p.userId === userId);
-    if (existingParticipant) return false;
+    if (existingParticipant) {
+      console.log(`⚠️ User ${username} (${userId}) already participated in race ${raceId}`);
+      return false;
+    }
 
-    race.participants.push({
+    const participantData = {
       userId,
       username,
       horseId,
       horseName: horse.name,
-      tweetUrl
-    });
+      tweetUrl,
+      joinedAt: new Date()
+    };
 
-    await race.save();
-    return true;
+    race.participants.push(participantData);
+
+    try {
+      await race.save();
+      console.log(`✅ Participant added successfully: ${username} bet on #${horseId} ${horse.name} in race ${raceId}`);
+      console.log(`📊 Race ${raceId} now has ${race.participants.length} participants`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Failed to save participant ${username} to race ${raceId}:`, error);
+      return false;
+    }
+  }
+
+  // Method to finish a race without running it (for cleanup)
+  async finishRace(raceId) {
+    console.log(`🏁 Finishing incomplete race: ${raceId}`);
+    
+    const race = await Race.findOne({ raceId });
+    if (!race) {
+      console.log(`❌ Race ${raceId} not found`);
+      return null;
+    }
+
+    console.log(`📊 Race ${raceId} being finished with ${race.participants.length} participants`);
+
+    // If race hasn't been run yet, run it first
+    if (race.status !== 'finished') {
+      return await this.runRace(raceId);
+    }
+
+    return race;
+  }
+
+  // Method to verify participant data integrity
+  async verifyRaceIntegrity(raceId) {
+    const race = await Race.findOne({ raceId });
+    if (!race) return null;
+
+    console.log(`🔍 Verifying race ${raceId} integrity:`);
+    console.log(`  - Status: ${race.status}`);
+    console.log(`  - Participants: ${race.participants.length}`);
+    console.log(`  - Prize Pool: ${race.prizePool}`);
+    
+    if (race.participants.length > 0) {
+      console.log('  - Participant details:');
+      race.participants.forEach((p, i) => {
+        console.log(`    ${i+1}. ${p.username} (${p.userId}) - #${p.horseId} ${p.horseName}`);
+        console.log(`       Joined: ${p.joinedAt || 'Unknown'}, Tweet: ${p.tweetUrl ? 'Yes' : 'No'}`);
+      });
+    }
+
+    return race;
   }
 }
 

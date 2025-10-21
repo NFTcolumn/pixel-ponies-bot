@@ -1,1085 +1,171 @@
-import User from '../models/User.js';
-import Race from '../models/Race.js';
-import TempSelection from '../models/TempSelection.js';
-import RaceService from '../services/RaceService.js';
-import SolanaService from '../services/SolanaService.js';
-import ReferralService from '../services/ReferralService.js';
-import PayoutService from '../services/PayoutService.js';
-import cron from 'node-cron';
+import RegistrationHandler from './commands/registrationHandler.js';
+import RaceHandler from './commands/raceHandler.js';
+import InfoHandler from './commands/infoHandler.js';
+import AdminHandler from './commands/adminHandler.js';
+import SchedulerHandler from './schedulerHandler.js';
+import TimeUtils from '../utils/timeUtils.js';
 
+/**
+ * Refactored Bot Handler - Main orchestrator for all bot functionality
+ * 
+ * This refactored version delegates responsibilities to specialized handlers:
+ * - RegistrationHandler: User registration and Twitter verification
+ * - RaceHandler: All race-related functionality and betting
+ * - InfoHandler: User info, balance, referrals, help commands
+ * - AdminHandler: Administrative commands with proper authorization
+ * - SchedulerHandler: Race scheduling and automated operations
+ * 
+ * Benefits of this architecture:
+ * - Separation of concerns
+ * - Easier testing and maintenance 
+ * - Better error isolation
+ * - Cleaner code organization
+ * - Enhanced reusability
+ */
 class BotHandler {
   constructor(bot) {
     this.bot = bot;
-    this.awaitingTwitterHandle = new Set();
+    
+    // Initialize specialized handlers
+    this.registrationHandler = new RegistrationHandler(bot);
+    this.raceHandler = new RaceHandler(bot);
+    this.infoHandler = new InfoHandler(bot);
+    this.adminHandler = new AdminHandler(bot);
+    this.schedulerHandler = new SchedulerHandler(bot);
+    
+    // Setup commands and start scheduler
     this.setupCommands();
-    this.checkAndFinishIncompleteRaces();
-    this.startRaceScheduler();
+    this.schedulerHandler.startScheduler();
+    
+    // Perform recovery operations
+    this.performStartupRecovery();
   }
 
+  /**
+   * Setup all bot commands using specialized handlers
+   */
   setupCommands() {
-    // Start command (with optional referral code)
-    this.bot.onText(/\/start(?:\s+([a-zA-Z0-9]+))?/, (msg, match) => this.handleStart(msg, match ? match[1] : null));
+    // Registration commands
+    this.bot.onText(/\/start(?:\s+([a-zA-Z0-9]+))?/, (msg, match) => 
+      this.registrationHandler.handleStart(msg, match ? match[1] : null));
     
-    // Register command
-    this.bot.onText(/\/register(?:\s+(\S+)(?:\s+@?(\w+))?)?/, (msg, match) => this.handleRegister(msg, match ? match[1] : null, match ? match[2] : null));
+    this.bot.onText(/\/register(?:\s+(\S+)(?:\s+@?(\w+))?)?/, (msg, match) => 
+      this.registrationHandler.handleRegister(msg, match ? match[1] : null, match ? match[2] : null));
+    
+    this.bot.onText(/\/verify_follow/, (msg) => 
+      this.registrationHandler.handleVerifyFollow(msg));
     
     // Race commands
-    this.bot.onText(/\/race/, (msg) => this.handleRace(msg));
-    this.bot.onText(/\/horse\s+(\d+)/, (msg, match) => this.handleHorse(msg, parseInt(match[1])));
-    this.bot.onText(/\/verify\s+(https:\/\/(?:twitter\.com|x\.com)\/\S+)/, (msg, match) => this.handleVerify(msg, match[1]));
+    this.bot.onText(/\/race/, (msg) => this.raceHandler.handleRace(msg));
+    this.bot.onText(/\/horse\s+(\d+)/, (msg, match) => 
+      this.raceHandler.handleHorse(msg, parseInt(match[1])));
+    this.bot.onText(/\/verify\s+(https:\/\/(?:twitter\.com|x\.com)\/\S+)/, (msg, match) => 
+      this.raceHandler.handleVerify(msg, match[1]));
+    this.bot.onText(/\/racetime/, (msg) => this.raceHandler.handleRaceTime(msg));
     
-    // User info commands
-    this.bot.onText(/\/balance/, (msg) => this.handleBalance(msg));
-    this.bot.onText(/\/airdrop/, (msg) => this.handleAirdropInfo(msg));
+    // Info commands
+    this.bot.onText(/\/balance/, (msg) => this.infoHandler.handleBalance(msg));
+    this.bot.onText(/\/airdrop/, (msg) => this.infoHandler.handleAirdropInfo(msg));
+    this.bot.onText(/\/referral/, (msg) => this.infoHandler.handleReferral(msg));
+    this.bot.onText(/\/invite/, (msg) => this.infoHandler.handleInvite(msg));
+    this.bot.onText(/\/howtoplay|\/help/, (msg) => this.infoHandler.handleHowToPlay(msg));
     
-    // Referral commands
-    this.bot.onText(/\/referral/, (msg) => this.handleReferral(msg));
-    this.bot.onText(/\/invite/, (msg) => this.handleInvite(msg));
-    
-    // Twitter verification
-    this.bot.onText(/\/verify_follow/, (msg) => this.handleVerifyFollow(msg));
-    
-    // Help command
-    this.bot.onText(/\/howtoplay|\/help/, (msg) => this.handleHowToPlay(msg));
-    
-    // Race time command
-    this.bot.onText(/\/racetime/, (msg) => this.handleRaceTime(msg));
-    
-    // Admin commands (moved to separate method for clarity)
-    this.setupAdminCommands();
+    // Admin commands
+    this.adminHandler.setupAdminCommands(this.bot);
     
     // Event handlers
     this.bot.on('callback_query', (query) => this.handleCallback(query));
     this.bot.on('message', (msg) => this.handleMessage(msg));
+    
+    console.log('✅ Enhanced command handlers registered with specialized modules');
   }
 
-  setupAdminCommands() {
-    const adminIds = ['363208661', '1087968824', '1438261641'];
-    
-    this.bot.onText(/\/admin_airdrop\s+(\d+)/, (msg, match) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleAdminAirdrop(msg, match[1]);
-      }
-    });
-    
-    this.bot.onText(/\/admin_balance/, (msg) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleAdminBalance(msg);
-      }
-    });
-    
-    this.bot.onText(/\/airdrop_user\s+(\w+)\s+(\d+)/, (msg, match) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleManualAirdrop(msg, match[1], parseInt(match[2]));
-      }
-    });
-    
-    this.bot.onText(/\/list_racers/, (msg) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleListRacers(msg);
-      }
-    });
-    
-    this.bot.onText(/\/list_users/, (msg) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleListUsers(msg);
-      }
-    });
-
-    this.bot.onText(/\/admin_race/, (msg) => {
-      if (adminIds.includes(msg.from.id.toString())) {
-        this.handleAdminRace(msg);
-      }
-    });
-  }
-
-  async handleStart(msg, referralCode = null) {
-    const userId = msg.from.id.toString();
-    
-    // Handle referral if code provided
-    if (referralCode) {
-      const referralResult = await ReferralService.handleReferralLink(userId, referralCode);
-      if (referralResult) {
-        if (referralResult.shouldCreateUser) {
-          await this.bot.sendMessage(msg.chat.id, 
-            `🎉 **Welcome via referral from @${referralResult.referrerName}!**\n\n🎁 You'll get extra rewards when you complete registration!`
-          );
-        } else {
-          await this.bot.sendMessage(msg.chat.id, 
-            `🎉 **Referral linked to @${referralResult.referrerName}!**`
-          );
-        }
-      }
-    }
-
-    const message = `
-🏇 **Welcome to Pixel Ponies!**
-
-The most exciting crypto horse racing with real $PONY rewards!
-
-🎁 **RACING REWARDS: 500 $PONY per race!**
-Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
-
-**How to Play:**
-1. Register: \`/register YOUR_WALLET\`
-2. Follow @pxponies and connect Twitter (guided)
-3. Join races with \`/race\` and pick your pony
-4. Tweet your pick and verify for entry
-5. Earn 500 $PONY per race + jackpot winnings!
-
-**Commands:**
-/register - Start registration (wallet + Twitter)
-/howtoplay - Complete step-by-step guide
-/race - Current race info
-/racetime - Next race schedule & countdown
-/balance - Your stats
-/airdrop - Check bonus status
-/referral - Your referral stats & link
-/invite - Invite friends for PONY rewards
-
-💬 **You can use all commands here in private chat with @PixelPony_bot or in the group!**
-
-**💰 Jackpot grows with community size!**
-`;
-
-    await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-  }
-
-  async handleRegister(msg, walletAddress, twitterHandle) {
-    const userId = msg.from.id.toString();
-    
+  /**
+   * Perform startup recovery operations
+   */
+  async performStartupRecovery() {
     try {
-      let user = await User.findOne({ telegramId: userId });
+      console.log('🔄 Performing startup recovery operations...');
       
-      // Handle existing users updating their info
-      if (user && walletAddress && twitterHandle) {
-        if (!SolanaService.validateSolanaAddress(walletAddress)) {
-          return this.bot.sendMessage(msg.chat.id, '❌ Invalid Solana address format');
-        }
-        
-        twitterHandle = twitterHandle.replace('@', '');
-        user.solanaAddress = walletAddress;
-        user.twitterHandle = twitterHandle;
-        user.twitterFollowVerified = false;
-        await ReferralService.ensureReferralCode(user);
-        await user.save();
-        
-        return this.bot.sendMessage(msg.chat.id, 
-          `✅ **Profile Updated!**\n\n👤 Twitter: @${twitterHandle}\n💎 Wallet: ${walletAddress.slice(0,8)}...\n\n📱 Please use /verify_follow to verify your Twitter follow!`
-        );
-      }
+      // Check for incomplete races and finish them
+      await this.schedulerHandler.checkAndFinishIncompleteRaces();
       
-      // New user registration
-      if (!walletAddress) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ **Registration Required:**\n\n`/register YOUR_WALLET`\n\nExample:\n`/register 7xKXt...abc123`'
-        );
-      }
+      // Clean up expired temporary selections
+      await this.raceHandler.cleanupExpiredSelections();
       
-      if (!SolanaService.validateSolanaAddress(walletAddress)) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Invalid Solana address format');
-      }
-
-      if (user) {
-        user.solanaAddress = walletAddress;
-        // Always update username/name info in case it changed
-        user.username = msg.from.username || user.username;
-        user.firstName = msg.from.first_name || user.firstName;
-        user.lastName = msg.from.last_name || user.lastName;
-        await ReferralService.ensureReferralCode(user);
-      } else {
-        user = new User({
-          telegramId: userId,
-          username: msg.from.username || 'UnknownUser',
-          firstName: msg.from.first_name || 'User',
-          lastName: msg.from.last_name,
-          solanaAddress: walletAddress,
-          referralCode: ReferralService.generateReferralCode(userId)
-        });
-      }
-      
-      await user.save();
-      
-      // Show Twitter follow flow
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '🐦 Follow @pxponies', url: 'https://x.com/pxponies' }],
-          [{ text: '✅ I followed - Enter Twitter Handle', callback_data: `enter_twitter_${userId}` }]
-        ]
-      };
-      
-      await this.bot.sendMessage(msg.chat.id, 
-        `✅ **Step 1/2 Complete!**\n\n💎 Wallet registered: ${walletAddress.slice(0,8)}...\n\n🐦 **Step 2: Follow & Connect Twitter**\n\n⚠️ **Required for airdrops and rewards!**\n\n1. Follow @pxponies on Twitter\n2. Click button below to enter your handle`,
-        { parse_mode: 'Markdown', reply_markup: keyboard }
-      );
-      
+      console.log('✅ Startup recovery completed');
     } catch (error) {
-      console.error('Registration error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Registration failed. Try again.');
+      console.error('❌ Error in startup recovery:', error);
     }
   }
 
-  async handleRace(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const race = await RaceService.getCurrentRace();
-      
-      if (!race) {
-        return this.bot.sendMessage(msg.chat.id, 
-          `⏰ **No Active Race**\n\nNext race starts soon! Check back in a few minutes.`
-        );
-      }
 
-      let horsesList = '';
-      race.horses.forEach((horse, index) => {
-        if (index % 3 === 0 && index > 0) horsesList += '\n';
-        horsesList += `${horse.id}. ${horse.emoji} ${horse.name}  `;
-      });
 
-      const userBet = race.participants.find(p => p.userId === userId);
-      const betStatus = userBet ? 
-        `🎯 **Your Bet:** #${userBet.horseId} ${userBet.horseName}\n` : 
-        `🎯 **Your Bet:** None yet\n`;
 
-      const message = `
-🏁 **CURRENT RACE: ${race.raceId}**
-🟢 Status: **${race.status.toUpperCase().replace('_', ' ')}**
 
-${betStatus}
 
-🐎 **Choose Your Pony:**
-${horsesList}
 
-💰 **Prize Pool:** ${race.prizePool} $PONY
-👥 **Players:** ${race.participants.length}
 
-🎯 **To Enter:**
-1. Pick pony: \`/horse NUMBER\`
-2. Tweet your pick
-3. Verify: \`/verify TWEET_URL\`
-`;
 
-      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-      
-    } catch (error) {
-      console.error('Race error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting race info');
-    }
-  }
 
-  async handleHorse(msg, horseNumber) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const user = await User.findOne({ telegramId: userId });
-      if (!user || !user.solanaAddress || !user.twitterHandle) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ Please register first with /register YOUR_WALLET @your_twitter'
-        );
-      }
 
-      if (!user.twitterFollowVerified) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ **Follow Required for Airdrops & Rewards!**\n\n🐦 Please follow @pxponies first with /verify_follow to participate in races and receive rewards!'
-        );
-      }
-
-      const race = await RaceService.getCurrentRace();
-      if (!race || race.status !== 'betting_open') {
-        return this.bot.sendMessage(msg.chat.id, 
-          `❌ No active race for betting\n\nTry again when the next race starts!`
-        );
-      }
-
-      const horse = race.horses.find(h => h.id === horseNumber);
-      if (!horse) {
-        return this.bot.sendMessage(msg.chat.id, `❌ Invalid horse number. Choose 1-12.`);
-      }
-
-      const existingParticipant = race.participants.find(p => p.userId === userId);
-      if (existingParticipant) {
-        return this.bot.sendMessage(msg.chat.id, 
-          `⚠️ You already picked ${existingParticipant.horseName} in this race!`
-        );
-      }
-
-      // Store selection temporarily
-      await TempSelection.findOneAndUpdate(
-        { userId, raceId: race.raceId },
-        { horseId: horseNumber, horseName: horse.name },
-        { upsert: true }
-      );
-
-      const tweetText = `🐎 I bet on ${horse.name} ${horse.emoji} on #PixelPonies! 
-
-🏆 How To WIN $PONY 
-
-1. Join here 👉 https://t.me/pixelponies 
-
-2. PLAY and EARN 💰 500 $PONY for every race you enter! 🎯
-
-#crypto #Games #PumpFun 🚀
-$PONY $SOL $BASE #MakeCryptoFunAgain 💎
-
-🛒 BUY $PONY: https://pump.fun/coin/4RuwkFn3LStf1YeMi3b46qtpyW845bHayog3P8Qqpump`;
-
-      const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '🐦 Tweet Now', url: tweetUrl }],
-          [{ text: '📝 Tweet Text', callback_data: `tweet_${horseNumber}` }]
-        ]
-      };
-
-      await this.bot.sendMessage(msg.chat.id, 
-        `🐎 **Great Choice: ${horse.name} ${horse.emoji}**\n\n🎯 **Next Steps:**\n1. Click "Tweet Now" below\n2. Copy your tweet URL after posting\n3. Use: /verify YOUR_TWEET_URL\n\n⚠️ **Must tweet to win $PONY!**`,
-        { parse_mode: 'Markdown', reply_markup: keyboard }
-      );
-      
-    } catch (error) {
-      console.error('Horse selection error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error selecting horse');
-    }
-  }
-
-  async handleVerify(msg, tweetUrl) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const user = await User.findOne({ telegramId: userId });
-      if (!user) return this.bot.sendMessage(msg.chat.id, '❌ Please register first');
-
-      const race = await RaceService.getCurrentRace();
-      if (!race || race.status !== 'betting_open') {
-        return this.bot.sendMessage(msg.chat.id, '❌ No active race');
-      }
-
-      const tempSelection = await TempSelection.findOne({ userId, raceId: race.raceId });
-      if (!tempSelection) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ **Horse Selection Required!**\n\nPlease select your horse first with /horse NUMBER'
-        );
-      }
-
-      const success = await RaceService.addParticipant(
-        race.raceId, userId, user.username || user.firstName, tempSelection.horseId, tweetUrl
-      );
-
-      if (success) {
-        await TempSelection.deleteOne({ userId, raceId: race.raceId });
-        
-        await PayoutService.processRacingReward(user, msg.chat.id, this.bot);
-        
-        if (!user.airdropReceived && user.solanaAddress) {
-          await PayoutService.processParticipantBonus(user, msg.chat.id, this.bot);
-          await ReferralService.processReferralReward(user, msg.chat.id, this.bot);
-        }
-        
-        await this.bot.sendMessage(msg.chat.id, 
-          `✅ **Tweet Verified!**\n\n🎉 You're in the race!\n🎁 Racing reward sent!\n🍀 Good luck!`
-        );
-      } else {
-        await this.bot.sendMessage(msg.chat.id, '❌ Verification failed');
-      }
-    } catch (error) {
-      console.error('Verify error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error verifying tweet');
-    }
-  }
-
-  async handleBalance(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const user = await User.findOne({ telegramId: userId });
-      if (!user) return this.bot.sendMessage(msg.chat.id, '❌ Please register first');
-
-      const airdropStatus = user.airdropReceived ? 
-        `✅ Welcome Airdrop: ${user.airdropAmount} $PONY` : 
-        `❌ Airdrop: Verify a tweet to get 100 $PONY!`;
-
-      const message = `
-💰 **Your Pixel Ponies Stats**
-
-🏆 Races Won: ${user.racesWon}
-🎯 Races Entered: ${user.racesParticipated}
-🏁 Racing Rewards: ${user.raceRewardsEarned || 0} $PONY
-💸 Total Earned: ${user.totalWon} $PONY
-🎁 ${airdropStatus}
-👥 Referrals: ${user.referralCount} (${user.referralEarnings || 0} $PONY earned)
-🐦 Twitter Follow: ${user.twitterFollowVerified ? '✅ Verified' : '❌ Not verified'}
-📅 Member Since: ${user.createdAt.toDateString()}
-
-💎 Wallet: \`${user.solanaAddress ? user.solanaAddress.slice(0,8) + '...' : 'Not set'}\`
-👤 Twitter: @${user.twitterHandle || 'Not set'}
-
-🔗 **Use /referral to get your invite link!**
-`;
-
-      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-    } catch (error) {
-      console.error('Balance error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting balance');
-    }
-  }
-
-  async updateUserInfo(user, msgFrom) {
-    let updated = false;
-    if (msgFrom.username && user.username !== msgFrom.username) {
-      user.username = msgFrom.username;
-      updated = true;
-    }
-    if (msgFrom.first_name && user.firstName !== msgFrom.first_name) {
-      user.firstName = msgFrom.first_name;
-      updated = true;
-    }
-    if (msgFrom.last_name !== undefined && user.lastName !== msgFrom.last_name) {
-      user.lastName = msgFrom.last_name;
-      updated = true;
-    }
-    
-    if (updated) {
-      await user.save();
-      console.log(`✅ Updated user info for ${user.telegramId}: ${user.username || user.firstName}`);
-    }
-  }
-
-  async handleReferral(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      let user = await User.findOne({ telegramId: userId });
-      if (!user) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Please register first with /register YOUR_WALLET');
-      }
-
-      // Update user info
-      await this.updateUserInfo(user, msg.from);
-
-      const referralCode = await ReferralService.ensureReferralCode(user);
-      const referralLink = ReferralService.getReferralLink(referralCode);
-      
-      const message = `
-🎁 **Your Referral Program**
-
-🔗 **Your Referral Link:**
-\`${referralLink}\`
-
-📊 **Your Stats:**
-👥 People Invited: ${user.referralCount}
-💰 Referral Earnings: ${user.referralEarnings} $PONY
-🎯 Reward per Invite: 100 $PONY
-
-**How it works:**
-1. Share your link with friends
-2. When they register & verify a tweet
-3. You both get 100 $PONY!
-
-**Share this message:**
-🏇 Join Pixel Ponies and get FREE $PONY! 
-Use my referral: ${referralLink}
-`;
-
-      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-    } catch (error) {
-      console.error('Referral error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting referral info');
-    }
-  }
-
-  async handleInvite(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      let user = await User.findOne({ telegramId: userId });
-      if (!user) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Please register first with /register YOUR_WALLET');
-      }
-
-      const referralCode = await ReferralService.ensureReferralCode(user);
-      const referralLink = ReferralService.getReferralLink(referralCode);
-      
-      const shareMessage = `🏇 **Join Pixel Ponies - Win Real $PONY!**
-
-🎁 FREE crypto horse racing with instant rewards!
-💰 500 $PONY per race + 100 $PONY welcome bonus
-
-🚀 Join now: ${referralLink}
-
-Race, win, earn! 🏆`;
-
-      const keyboard = {
-        inline_keyboard: [
-          [{ text: '📢 Share on Twitter', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}` }],
-          [{ text: '💬 Share in Telegram', switch_inline_query: shareMessage }]
-        ]
-      };
-
-      await this.bot.sendMessage(msg.chat.id, 
-        `🎁 **Invite Friends & Earn $PONY!**\n\nYour referral link:\n\`${referralLink}\`\n\n📊 Invited: ${user.referralCount} • Earned: ${user.referralEarnings} $PONY`,
-        { parse_mode: 'Markdown', reply_markup: keyboard }
-      );
-    } catch (error) {
-      console.error('Invite error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting invite info');
-    }
-  }
-
-  async handleVerifyFollow(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const user = await User.findOne({ telegramId: userId });
-      if (!user || !user.twitterHandle) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ Please register first with /register YOUR_WALLET @your_twitter'
-        );
-      }
-
-      if (user.twitterFollowVerified) {
-        return this.bot.sendMessage(msg.chat.id, 
-          `✅ **Already Verified!**\n\n🐦 @${user.twitterHandle} is verified as a follower!\n\n🏇 You can now participate in races!`
-        );
-      }
-
-      // For now, we'll use a simple verification (in production, you'd check via Twitter API)
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { 
-              text: '✅ I followed @pxponies', 
-              callback_data: `confirm_follow_${userId}` 
-            }
-          ],
-          [
-            { 
-              text: '🐦 Follow @pxponies', 
-              url: 'https://x.com/pxponies' 
-            }
-          ]
-        ]
-      };
-
-      console.log(`🔗 Creating follow verification for user ${userId} (@${user.twitterHandle})`);
-
-      await this.bot.sendMessage(msg.chat.id, 
-        `🐦 **Twitter Follow Verification**\n\n📱 Please follow @pxponies on Twitter, then click the button below to confirm.\n\n⚠️ **Note:** You must follow us to receive airdrops and community rewards!`,
-        { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        }
-      );
-      
-    } catch (error) {
-      console.error('Follow verification error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error with follow verification');
-    }
-  }
-
+  /**
+   * Handle callback queries (button presses)
+   */
   async handleCallback(query) {
     await this.bot.answerCallbackQuery(query.id);
-    const data = query.data;
-    const userId = query.from.id.toString();
     
-    if (data.startsWith('enter_twitter_')) {
-      const targetUserId = data.replace('enter_twitter_', '');
-      if (targetUserId === userId) {
-        await this.bot.editMessageText(
-          `🐦 **Enter Your Twitter Handle**\n\nReply to this message with your Twitter handle (without @):\n\nExample: \`pxponies\``,
-          {
-            chat_id: query.message.chat.id,
-            message_id: query.message.message_id,
-            parse_mode: 'Markdown'
-          }
-        );
-        this.awaitingTwitterHandle.add(userId);
-      }
-    }
-    
-    // Handle follow confirmation
-    if (data.startsWith('confirm_follow_')) {
-      const targetUserId = data.replace('confirm_follow_', '');
-      console.log(`📝 Follow confirmation: target=${targetUserId}, user=${userId}`);
-      
-      if (targetUserId === userId) {
-        try {
-          const user = await User.findOne({ telegramId: userId });
-          console.log(`👤 User found: ${user ? user.username : 'null'}, verified: ${user ? user.twitterFollowVerified : 'n/a'}`);
-          
-          if (user && !user.twitterFollowVerified) {
-            user.twitterFollowVerified = true;
-            await user.save();
-            console.log(`✅ User ${userId} follow verified successfully`);
-            
-            await this.bot.editMessageText(
-              `✅ **Follow Verified!**\n\n🎉 Welcome @${user.twitterHandle}!\n🏇 You can now receive airdrops and community rewards!\n\n💡 Use /race to see the current race!`,
-              {
-                chat_id: query.message.chat.id,
-                message_id: query.message.message_id,
-                parse_mode: 'Markdown'
-              }
-            );
-          } else if (user && user.twitterFollowVerified) {
-            console.log(`⚠️ User ${userId} already verified`);
-            await this.bot.editMessageText(
-              `✅ **Already Verified!**\n\n🎉 You're already verified @${user.twitterHandle}!\n🏇 You can participate in races!`,
-              {
-                chat_id: query.message.chat.id,
-                message_id: query.message.message_id,
-                parse_mode: 'Markdown'
-              }
-            );
-          }
-        } catch (error) {
-          console.error('Follow confirmation error:', error);
-          console.error(error.stack);
-        }
-      } else {
-        console.log(`❌ User ID mismatch: expected ${targetUserId}, got ${userId}`);
-      }
-    }
+    // Delegate to registration handler for Twitter-related callbacks
+    await this.registrationHandler.handleTwitterCallback(query);
   }
 
+  /**
+   * Handle general messages (delegation to specialized handlers)
+   */
   async handleMessage(msg) {
-    const userId = msg.from.id.toString();
-    const text = msg.text;
+    // Delegate to registration handler for Twitter handle input
+    const handled = await this.registrationHandler.handleTwitterMessage(msg);
     
-    if (!text || text.startsWith('/') || !this.awaitingTwitterHandle.has(userId)) {
-      return;
-    }
-    
-    try {
-      const twitterHandle = text.replace('@', '').trim();
-      if (!twitterHandle || twitterHandle.length < 1) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Please enter a valid Twitter handle');
-      }
-      
-      const user = await User.findOne({ telegramId: userId });
-      if (user) {
-        user.twitterHandle = twitterHandle;
-        user.twitterFollowVerified = true;
-        await user.save();
-        this.awaitingTwitterHandle.delete(userId);
-        
-        await this.bot.sendMessage(msg.chat.id, 
-          `✅ **Registration Complete!**\n\n🎉 Welcome @${twitterHandle}!\n💎 Wallet: ${user.solanaAddress.slice(0,8)}...\n🐦 Twitter: @${twitterHandle}\n\n🏇 **You're all set!** Use /race to join the next race and earn $PONY!`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-    } catch (error) {
-      console.error('Twitter handle processing error:', error);
-      this.bot.sendMessage(msg.chat.id, '❌ Error processing Twitter handle. Please try again.');
+    if (!handled) {
+      // Could add other message handling logic here if needed
+      // For now, just ignore unhandled messages
     }
   }
 
-  async handleAirdropInfo(msg) {
-    const userId = msg.from.id.toString();
-    
-    try {
-      const user = await User.findOne({ telegramId: userId });
-      
-      if (!user) {
-        return this.bot.sendMessage(msg.chat.id, 
-          `🎁 **PIXEL PONIES AIRDROP**\n\n💰 **Get 100 FREE $PONY!**\n\n📝 How to claim:\n1. Register with /register WALLET\n2. Pick a horse in any race\n3. Tweet your pick\n4. Verify with /verify TWEET_URL\n\n✅ One-time bonus for new players!`
-        );
-      }
-
-      if (user.airdropReceived) {
-        await this.bot.sendMessage(msg.chat.id, 
-          `🎁 **Airdrop Status: CLAIMED** ✅\n\n💰 You received: ${user.airdropAmount} $PONY\n🎉 Welcome bonus already sent to your wallet!\n\n🏇 Keep racing to win more $PONY!`
-        );
-      } else {
-        await this.bot.sendMessage(msg.chat.id, 
-          `🎁 **Airdrop Status: AVAILABLE** 🎯\n\n💰 You can still claim: **100 $PONY**\n\n📋 To claim:\n${user.solanaAddress ? '✅ Wallet registered' : '❌ Register wallet first'}\n❌ Verify your first tweet in any race\n\n🏇 Pick a horse and tweet to claim!`
-        );
-      }
-      
-    } catch (error) {
-      console.error('Airdrop info error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting airdrop info');
-    }
+  /**
+   * Get comprehensive bot status
+   * @returns {Object} Status information from all handlers
+   */
+  getBotStatus() {
+    return {
+      handlers: {
+        registration: 'active',
+        race: 'active', 
+        info: 'active',
+        admin: 'active'
+      },
+      scheduler: this.schedulerHandler.getStatus(),
+      nextRace: TimeUtils.getNextRaceInfo(),
+      uptime: process.uptime()
+    };
   }
 
-  async handleHowToPlay(msg) {
-    const message = `
-📚 **HOW TO PLAY PIXEL PONIES - COMPLETE GUIDE**
-
-🎯 **STEP 1: REGISTER YOUR WALLET**
-• Use: \`/register YOUR_SOLANA_WALLET\`
-• Example: \`/register 7xKXtWuQmLYqhKSxP2abc123...\`
-• This saves your wallet for $PONY payouts
-
-🐦 **STEP 2: FOLLOW & CONNECT TWITTER**
-• After registering, you'll get buttons to:
-  1. Follow @pxponies on Twitter/X
-  2. Enter your Twitter handle
-• This is **REQUIRED** for all rewards!
-
-🏁 **STEP 3: JOIN A RACE**
-• Use: \`/race\` to see current race
-• Pick your horse: \`/horse 1\` (numbers 1-12)
-• You'll get a pre-written tweet to post
-
-🐦 **STEP 4: TWEET & VERIFY**
-• Post the generated tweet about your horse
-• Copy your tweet URL 
-• Use: \`/verify YOUR_TWEET_URL\`
-• Example: \`/verify https://x.com/yourname/status/123...\`
-
-💰 **STEP 5: GET PAID!**
-• **500 $PONY** instantly for participating
-• **100 $PONY** welcome bonus (first time)
-• **Share of jackpot** if your horse wins!
-
-🎁 **REWARDS SUMMARY:**
-• 500 $PONY per race (while supplies last)
-• 100 $PONY welcome bonus
-• Jackpot winnings (tiered scaling: 1000/500/250/125 PONY per 50 members, split 85%/12.5%/2.5%)
-• Must follow @pxponies for all rewards
-
-**Referral Program:**
-🎁 Earn 100 $PONY for each friend you invite!
-🔗 Use \`/referral\` to get your unique invite link
-💰 Both you and your friend get rewards!
-
-⚡ **QUICK START:**
-1. \`/register wallet\` → Follow @pxponies → Enter Twitter
-2. \`/race\` → \`/horse NUMBER\` → Tweet → \`/verify URL\`
-3. Earn $PONY! 🚀
-
-**Need help?** Use \`/balance\` to check your stats anytime!
-`;
-
-    await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-  }
-
-  async handleRaceTime(msg) {
-    try {
-      const now = new Date();
-      const currentTimeUTC = now.getTime();
-      
-      // Create next race times (12:00 AM and 12:00 PM UTC)
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0); // Today at midnight UTC
-      
-      const todayNoon = new Date(today);
-      todayNoon.setUTCHours(12, 0, 0, 0); // Today at noon UTC
-      
-      const tomorrowMidnight = new Date(today);
-      tomorrowMidnight.setUTCDate(today.getUTCDate() + 1);
-      tomorrowMidnight.setUTCHours(0, 0, 0, 0); // Tomorrow at midnight UTC
-      
-      // Find the next race
-      let nextRace;
-      if (currentTimeUTC < today.getTime()) {
-        // We're before today's midnight race (shouldn't happen, but just in case)
-        nextRace = today;
-      } else if (currentTimeUTC < todayNoon.getTime()) {
-        // Next race is today at noon
-        nextRace = todayNoon;
-      } else {
-        // Next race is tomorrow at midnight
-        nextRace = tomorrowMidnight;
-      }
-      
-      // Calculate time until next race
-      const msUntilRace = nextRace.getTime() - currentTimeUTC;
-      const hoursUntil = Math.floor(msUntilRace / (1000 * 60 * 60));
-      const minutesUntil = Math.floor((msUntilRace % (1000 * 60 * 60)) / (1000 * 60));
-      
-      // Format the next race time
-      const raceHour = nextRace.getUTCHours();
-      const racePeriod = raceHour === 0 ? 'AM (Midnight)' : 'PM (Noon)';
-      const raceTime = raceHour === 0 ? '12:00' : '12:00';
-      
-      // Format countdown
-      let timeString;
-      if (hoursUntil === 0) {
-        timeString = `${minutesUntil} minutes`;
-      } else if (minutesUntil === 0) {
-        timeString = `${hoursUntil} hours`;
-      } else {
-        timeString = `${hoursUntil} hours and ${minutesUntil} minutes`;
-      }
-      
-      const message = `
-🕐 **NEXT RACE COUNTDOWN**
-
-⏰ **Next Race:** ${raceTime} ${racePeriod} UTC
-⏳ **Time Until Race:** ${timeString}
-📅 **Date:** ${nextRace.toDateString()}
-
-🏇 **DAILY SCHEDULE:**
-• 🌙 12:00 AM UTC (Midnight)
-• ☀️ 12:00 PM UTC (Noon)
-
-⏱️ **Betting:** Open until race starts
-💰 **Prize Pool:** 500,000 $PONY
-
-🎯 Use \`/register YOUR_WALLET\` to join!
-🔄 Use \`/racetime\` anytime for updates
-`;
-
-      await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
-    } catch (error) {
-      console.error('Race time error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error getting race time info');
-    }
-  }
-
-  async checkAndFinishIncompleteRaces() {
-    try {
-      console.log('🔍 Checking for incomplete races...');
-      
-      // Find races that are not finished and were created more than 30 minutes ago
-      const cutoffTime = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
-      const incompleteRaces = await Race.find({
-        status: { $ne: 'finished' },
-        createdAt: { $lt: cutoffTime }
-      });
-
-      if (incompleteRaces.length === 0) {
-        console.log('✅ No incomplete races found');
-        return;
-      }
-
-      console.log(`🏁 Found ${incompleteRaces.length} incomplete race(s), finishing them...`);
-
-      for (const race of incompleteRaces) {
-        console.log(`🏃 Finishing race ${race.raceId} (status: ${race.status})`);
-        
-        if (race.status === 'betting_open') {
-          // Race never started, just finish it
-          const finishedRace = await RaceService.finishRace(race.raceId);
-          
-          const channelId = process.env.MAIN_CHANNEL_ID;
-          if (channelId) {
-            // Announce the results
-            const winner = finishedRace.horses.find(h => h.position === 1);
-            const second = finishedRace.horses.find(h => h.position === 2);
-            const third = finishedRace.horses.find(h => h.position === 3);
-
-            await this.bot.sendMessage(channelId, `
-🏁 **RACE ${race.raceId} COMPLETED** (System Recovery)
-
-🥇 **WINNER:** ${winner.emoji} ${winner.name} (${winner.finishTime.toFixed(2)}s)
-🥈 **PLACE:** ${second.emoji} ${second.name} (${second.finishTime.toFixed(2)}s)
-🥉 **SHOW:** ${third.emoji} ${third.name} (${third.finishTime.toFixed(2)}s)
-`, { parse_mode: 'Markdown' });
-
-            // Process payouts
-            await PayoutService.processRacePayouts(finishedRace, channelId, this.bot);
-          }
-          
-          console.log(`✅ Completed race ${race.raceId}`);
-        }
-      }
-
-      console.log('🎉 All incomplete races have been resolved!');
-      
-    } catch (error) {
-      console.error('❌ Error checking incomplete races:', error);
-    }
-  }
-
-  startRaceScheduler() {
-    console.log('🕐 Starting race scheduler - 2 races per day + hourly reminders');
-    
-    // Schedule races twice daily: 12:00 AM and 12:00 PM UTC
-    cron.schedule('0 0,12 * * *', async () => {
-      await this.runScheduledRace();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
-    });
-
-    // 5-minute warnings before races: 11:55 PM and 11:55 AM UTC
-    cron.schedule('55 23,11 * * *', async () => {
-      await this.sendRaceWarning();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
-    });
-    
-    // Schedule hourly reminders at :30 minutes past each hour
-    cron.schedule('30 * * * *', async () => {
-      await this.sendHourlyReminder();
-    }, {
-      scheduled: true,
-      timezone: "UTC"
-    });
-    
-    console.log('✅ Scheduler started:');
-    console.log('  🏇 Races: Daily at 12:00 AM & 12:00 PM UTC');
-    console.log('  ⚠️  5-min warnings: 11:55 PM & 11:55 AM UTC');
-    console.log('  📢 Reminders: Every hour at :30');
-  }
-
-  async runScheduledRace() {
-    try {
-      console.log('🚀 Running scheduled race...');
-      const race = await RaceService.createRace(this.bot);
-      console.log(`✅ Created race: ${race.raceId} with ${race.prizePool} $PONY`);
-      await this.announceNewRace(race);
-      
-      // Run the race after 15 minutes (extended betting time)
-      setTimeout(async () => {
-        console.log(`🏁 Running scheduled race: ${race.raceId}`);
-        await this.runLiveRace(race.raceId);
-      }, 900000); // 15 minutes
-      
-    } catch (error) {
-      console.error('❌ Scheduled race error:', error);
-    }
-  }
-
-  async sendRaceWarning() {
-    const channelId = process.env.MAIN_CHANNEL_ID;
-    if (!channelId) return;
+  /**
+   * Graceful shutdown of all handlers
+   */
+  async shutdown() {
+    console.log('🛑 Shutting down BotHandler...');
     
     try {
-      const now = new Date();
-      const utcHour = now.getUTCHours();
-      const nextRaceTime = utcHour === 23 ? '12:00 AM' : '12:00 PM';
+      // Stop scheduler
+      this.schedulerHandler.stopScheduler();
       
-      const message = `
-⚠️ **5 MINUTE WARNING!** ⚠️
-
-🏇 Next race starts at **${nextRaceTime} UTC**
-⏰ **5 MINUTES** to register and enter!
-
-🚀 **QUICK START:**
-1. \`/register YOUR_WALLET\` 
-2. Follow @pxponies
-3. Enter Twitter handle
-4. Pick your horse when race starts!
-
-💰 **Jackpot: Up to 500,000 $PONY!**
-🎁 **FREE registration + welcome bonus!**
-
-**DON'T MISS OUT!** 🏆
-`;
-
-      await this.bot.sendMessage(channelId, message, { parse_mode: 'Markdown' });
-      console.log(`⚠️ Sent 5-minute race warning for ${nextRaceTime}`);
+      // Clean up any pending operations
+      await this.raceHandler.cleanupExpiredSelections();
       
+      console.log('✅ BotHandler shutdown completed');
     } catch (error) {
-      console.error('❌ Race warning error:', error);
-    }
-  }
-
-  async sendHourlyReminder() {
-    const channelId = process.env.MAIN_CHANNEL_ID;
-    if (!channelId) return;
-    
-    try {
-      const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Next race at 12:00 AM or 12:00 PM UTC! Join now with `/register` and earn FREE $PONY! 🪙',
-        '🎁 **FREE $PONY AWAITS!** Register your wallet, follow @pxponies, and win real crypto in our daily races! 🏆',
-        '🚀 **Daily Crypto Racing!** Two chances to win big every day! Get started with `/register YOUR_WALLET` 💰',
-        '🏁 **Pixel Ponies Racing Club!** Free to join, free to play, real crypto rewards! Next race coming up! 🎯'
-      ];
-      
-      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-      
-      await this.bot.sendMessage(channelId, randomMessage, { parse_mode: 'Markdown' });
-      console.log('📢 Sent hourly reminder');
-      
-    } catch (error) {
-      console.error('❌ Hourly reminder error:', error);
-    }
-  }
-
-  async announceNewRace(race) {
-    const channelId = process.env.MAIN_CHANNEL_ID;
-    if (!channelId) return;
-
-    let horsesList = '';
-    race.horses.forEach((horse, index) => {
-      if (index % 3 === 0 && index > 0) horsesList += '\n';
-      horsesList += `${horse.id}. ${horse.emoji} ${horse.name}  `;
-    });
-
-    const message = `
-🚨 **DAILY RACE IS STARTING!** 🚨
-📺 **LIVE FROM PIXEL PONIES RACETRACK** 
-
-🏁 Race ID: ${race.raceId}
-
-🐎 **TODAY'S FIELD:**
-${horsesList}
-
-💰 **Prize Pool:** ${race.prizePool} $PONY
-⏰ **15 MINUTES** to enter!
-
-🎯 Use /horse NUMBER to pick your champion!
-🐦 Tweet your pick and /verify your tweet!
-
-**DAILY RACES: 12:00 AM & 12:00 PM UTC** 🏁
-`;
-
-    await this.bot.sendMessage(channelId, message, { parse_mode: 'Markdown' });
-  }
-
-  async runLiveRace(raceId) {
-    const channelId = process.env.MAIN_CHANNEL_ID;
-    if (!channelId) return;
-
-    await this.bot.sendMessage(channelId, 
-      `🚪 **BETTING IS NOW CLOSED!**\n\n📺 **AND THEY'RE OFF!** The horses are charging out of the gate! 🐎💨`
-    );
-
-    const finishedRace = await RaceService.runRace(raceId);
-    if (!finishedRace) return;
-
-    // Race commentary
-    const commentary = [
-      "🏁 They're coming around the first turn!",
-      "⚡ It's neck and neck down the backstretch!",
-      "🔥 They're entering the final stretch!",
-      "🎯 What a finish! Photo finish at the wire!",
-      "🏆 **THE RESULTS ARE IN!**"
-    ];
-
-    for (let i = 0; i < commentary.length; i++) {
-      setTimeout(async () => {
-        await this.bot.sendMessage(channelId, commentary[i]);
-      }, i * 5000);
-    }
-
-    setTimeout(async () => {
-      await this.announceResults(finishedRace);
-    }, 25000);
-  }
-
-  async announceResults(race) {
-    const channelId = process.env.MAIN_CHANNEL_ID;
-    if (!channelId) return;
-
-    const winner = race.horses.find(h => h.position === 1);
-    const second = race.horses.find(h => h.position === 2);
-    const third = race.horses.find(h => h.position === 3);
-
-    await this.bot.sendMessage(channelId, `
-🎺 **OFFICIAL RACE RESULTS** 🎺
-
-🥇 **WINNER:** ${winner.emoji} ${winner.name} (${winner.finishTime.toFixed(2)}s)
-🥈 **PLACE:** ${second.emoji} ${second.name} (${second.finishTime.toFixed(2)}s)
-🥉 **SHOW:** ${third.emoji} ${third.name} (${third.finishTime.toFixed(2)}s)
-`, { parse_mode: 'Markdown' });
-
-    await PayoutService.processRacePayouts(race, channelId, this.bot);
-  }
-
-  async handleAdminRace(msg) {
-    try {
-      await this.bot.sendMessage(msg.chat.id, '🏇 **Admin Manual Race Triggered!**');
-      await this.runScheduledRace();
-      await this.bot.sendMessage(msg.chat.id, '✅ Manual race started successfully!');
-    } catch (error) {
-      console.error('Admin manual race error:', error);
-      await this.bot.sendMessage(msg.chat.id, '❌ Error starting manual race');
+      console.error('❌ Error during BotHandler shutdown:', error);
     }
   }
 }

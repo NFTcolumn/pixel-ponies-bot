@@ -5,7 +5,7 @@ const tempSelectionSchema = new mongoose.Schema({
   raceId: { type: String, required: true },
   horseId: { type: Number, required: true },
   horseName: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now, expires: 3600 } // Auto-delete after 1 hour
+  createdAt: { type: Date, default: Date.now, expires: 7200 } // Auto-delete after 2 hours (extended)
 });
 
 // Ensure one selection per user per race
