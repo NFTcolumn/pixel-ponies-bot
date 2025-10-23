@@ -21,14 +21,11 @@ class TimeUtils {
    */
   static async getNetworkUTC() {
     try {
-      // Try to get time from a reliable time server
-      const response = await fetch('http://worldtimeapi.org/api/timezone/UTC');
-      if (response.ok) {
-        const data = await response.json();
-        return new Date(data.utc_datetime);
-      }
+      // For now, just use system time - network time can be added later with proper HTTP client
+      console.log('🕐 Using system UTC time for race scheduling');
+      return new Date();
     } catch (error) {
-      console.warn('⚠️ Network time fetch failed, using system time:', error.message);
+      console.warn('⚠️ Time fetch failed, using system time:', error.message);
     }
     
     // Fallback to system time

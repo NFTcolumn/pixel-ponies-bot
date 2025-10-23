@@ -36,15 +36,13 @@ class PixelPoniesBot {
       console.log('🔧 Connecting to MongoDB...');
       console.log('🔗 MongoDB URI (masked):', process.env.MONGODB_URI?.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
       
-      // Connect to MongoDB with robust settings
+      // Connect to MongoDB with compatible settings for newer MongoDB driver
       await mongoose.connect(process.env.MONGODB_URI, {
         serverSelectionTimeoutMS: 10000, // 10 second timeout
         connectTimeoutMS: 10000,
         maxPoolSize: 10, // Maintain up to 10 socket connections
-        serverSelectionRetryDelayMS: 5000, // Keep trying to send operations for 5 seconds
         socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-        bufferCommands: false, // Disable mongoose buffering
-        bufferMaxEntries: 0 // Disable mongoose buffering
+        bufferCommands: false // Disable mongoose buffering
       });
       console.log('✅ Connected to MongoDB');
       
