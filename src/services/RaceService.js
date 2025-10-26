@@ -80,11 +80,18 @@ class RaceService {
   }
 
   async runRace(raceId) {
+    console.log(`🔍 [DEBUG] Looking for race ${raceId} to run...`);
+    
     const race = await Race.findOne({ raceId });
     if (!race) {
-      console.log(`❌ Race ${raceId} not found`);
+      console.log(`❌ Race ${raceId} not found in database`);
       return null;
     }
+
+    console.log(`🔍 [DEBUG] Found race ${raceId}:`);
+    console.log(`  - Status: ${race.status}`);
+    console.log(`  - Participants array length: ${race.participants.length}`);
+    console.log(`  - Raw participants data:`, JSON.stringify(race.participants, null, 2));
 
     console.log(`🏁 Running race ${raceId} with ${race.participants.length} participants`);
     if (race.participants.length > 0) {
@@ -92,6 +99,8 @@ class RaceService {
       race.participants.forEach((p, i) => {
         console.log(`  ${i+1}. ${p.username} (${p.userId}) - Horse #${p.horseId} ${p.horseName}`);
       });
+    } else {
+      console.log('⚠️ [ISSUE] No participants found in race - this might be the bug!');
     }
 
     // Simulate race by generating random finish times
@@ -165,10 +174,19 @@ class RaceService {
 
     race.participants.push(participantData);
 
+    console.log(`🔍 [DEBUG] About to save participant to race ${raceId}:`);
+    console.log(`  - Participants before save: ${race.participants.length}`);
+    console.log(`  - New participant data:`, JSON.stringify(participantData, null, 2));
+
     try {
-      await race.save();
+      const savedRace = await race.save();
       console.log(`✅ Participant added successfully: ${username} bet on #${horseId} ${horse.name} in race ${raceId}`);
-      console.log(`📊 Race ${raceId} now has ${race.participants.length} participants`);
+      console.log(`📊 Race ${raceId} now has ${savedRace.participants.length} participants`);
+      
+      // Double-check by refetching the race to confirm persistence
+      const verifyRace = await Race.findOne({ raceId });
+      console.log(`🔍 [VERIFY] Race ${raceId} refetched - participants count: ${verifyRace.participants.length}`);
+      
       return true;
     } catch (error) {
       console.error(`❌ Failed to save participant ${username} to race ${raceId}:`, error);

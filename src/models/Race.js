@@ -22,11 +22,12 @@ const raceSchema = new mongoose.Schema({
     horseName: String
   },
   participants: [{
-    userId: String,
-    username: String,
-    horseId: Number,
-    horseName: String,
+    userId: { type: String, required: true },
+    username: { type: String, required: true },
+    horseId: { type: Number, required: true },
+    horseName: { type: String, required: true },
     tweetUrl: String,
+    joinedAt: { type: Date, default: Date.now },
     payout: { type: Number, default: 0 }
   }],
   prizePool: { type: Number, default: 700 },
