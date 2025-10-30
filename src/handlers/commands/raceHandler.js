@@ -78,8 +78,8 @@ ${horsesList}
     try {
       // Check user registration
       const user = await User.findOne({ telegramId: userId });
-      if (!user || !user.solanaAddress || !user.twitterHandle) {
-        return this.bot.sendMessage(msg.chat.id, 
+      if (!user || !user.baseAddress || !user.twitterHandle) {
+        return this.bot.sendMessage(msg.chat.id,
           '❌ Please register first with /register YOUR_WALLET @your_twitter'
         );
       }
@@ -268,7 +268,7 @@ $PONY $SOL $BASE #MakeCryptoFunAgain 💎
       await PayoutService.processRacingReward(user, chatId, this.bot);
       
       // First-time bonuses
-      if (!user.airdropReceived && user.solanaAddress) {
+      if (!user.airdropReceived && user.baseAddress) {
         console.log(`🎁 Processing first-time bonuses for ${user.username || user.firstName}`);
         await PayoutService.processParticipantBonus(user, chatId, this.bot);
         await ReferralService.processReferralReward(user, chatId, this.bot);

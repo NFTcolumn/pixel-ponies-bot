@@ -11,6 +11,9 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Wallet files (contains private keys - NEVER commit!)
+wallet.json
+
 # Logs
 logs/
 *.log

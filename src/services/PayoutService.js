@@ -1,39 +1,39 @@
 import User from '../models/User.js';
-import SolanaService from './SolanaService.js';
+import BaseService from './BaseService.js';
 
 class PayoutService {
   async payoutParticipant(participant, payout, place, channelId, bot) {
     const user = await User.findOne({ telegramId: participant.userId });
-    if (!user || !user.solanaAddress) {
-      await bot.sendMessage(channelId, 
+    if (!user || !user.baseAddress) {
+      await bot.sendMessage(channelId,
         `❌ Cannot pay @${participant.username} - no wallet address`
       );
       return;
     }
 
-    const result = await SolanaService.sendPony(user.solanaAddress, payout);
+    const result = await BaseService.sendPony(user.baseAddress, payout);
     if (result.success) {
       user.totalWon += payout;
       if (place === "1ST PLACE") user.racesWon += 1;
       await user.save();
-      
-      await bot.sendMessage(channelId, 
-        `🏆 **${place} WINNER!** 🏆\n\n🎉 @${participant.username}\n🐎 Horse: ${participant.horseName}\n💰 **Won:** ${payout} $PONY\n💎 **Total Earned:** ${user.totalWon} $PONY\n🔗 **Proof:** https://solscan.io/tx/${result.signature}`,
+
+      await bot.sendMessage(channelId,
+        `🏆 **${place} WINNER!** 🏆\n\n🎉 @${participant.username}\n🐎 Horse: ${participant.horseName}\n💰 **Won:** ${payout} $PONY\n💎 **Total Earned:** ${user.totalWon} $PONY\n🔗 **Proof:** https://basescan.org/tx/${result.hash}`,
         { parse_mode: 'Markdown' }
       );
-      
+
       // Send personal notification
       try {
         const emoji = place === "1ST PLACE" ? "🥇" : place === "2ND PLACE" ? "🥈" : "🥉";
         await bot.sendMessage(participant.userId,
-          `${emoji} **${place}!** ${emoji}\n\n🐎 Your horse ${participant.horseName} finished ${place.split(' ')[0].toLowerCase()}!\n💰 **Prize:** ${payout} $PONY\n💎 **Your Total:** ${user.totalWon} $PONY\n\n🔗 **Transaction Proof:**\nhttps://solscan.io/tx/${result.signature}\n\n🎊 Great job! Keep racing!`,
+          `${emoji} **${place}!** ${emoji}\n\n🐎 Your horse ${participant.horseName} finished ${place.split(' ')[0].toLowerCase()}!\n💰 **Prize:** ${payout} $PONY\n💎 **Your Total:** ${user.totalWon} $PONY\n\n🔗 **Transaction Proof:**\nhttps://basescan.org/tx/${result.hash}\n\n🎊 Great job! Keep racing!`,
           { parse_mode: 'Markdown' }
         );
       } catch (dmError) {
         console.log(`Could not send DM to ${place} winner ${participant.userId}`);
       }
     } else {
-      await bot.sendMessage(channelId, 
+      await bot.sendMessage(channelId,
         `❌ Failed to send $PONY to @${participant.username} - please contact support`
       );
     }
@@ -143,7 +143,7 @@ ${race.participants.length} players participated but nobody picked the winning h
       );
 
       // Send the airdrop
-      const result = await SolanaService.sendPony(user.solanaAddress, airdropAmount);
+      const result = await BaseService.sendPony(user.baseAddress, airdropAmount);
       
       if (result.success) {
         // Mark user as having received airdrop
@@ -152,8 +152,8 @@ ${race.participants.length} players participated but nobody picked the winning h
         user.totalWon += airdropAmount; // Add to their total winnings
         await user.save();
         
-        await bot.sendMessage(chatId, 
-          `🎉 **BONUS SUCCESSFUL!**\n\n✅ ${airdropAmount} $PONY sent to your wallet!\n💎 Transaction: \`${result.signature}\`\n\n🏇 Thanks for playing with us! Invite friends to increase the pot!`,
+        await bot.sendMessage(chatId,
+          `🎉 **BONUS SUCCESSFUL!**\n\n✅ ${airdropAmount} $PONY sent to your wallet!\n💎 Transaction: \`${result.hash}\`\n\n🏇 Thanks for playing with us! Invite friends to increase the pot!`,
           { parse_mode: 'Markdown' }
         );
 
@@ -193,7 +193,7 @@ ${race.participants.length} players participated but nobody picked the winning h
       }
       
       // Send the racing reward
-      const result = await SolanaService.sendPony(user.solanaAddress, raceReward);
+      const result = await BaseService.sendPony(user.baseAddress, raceReward);
       
       if (result.success) {
         // Update user's racing rewards

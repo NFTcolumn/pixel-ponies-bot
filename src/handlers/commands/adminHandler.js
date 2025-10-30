@@ -101,8 +101,8 @@ class AdminHandler {
    */
   async handleAdminBalance(msg) {
     try {
-      // TODO: Implement bot balance checking via SolanaService
-      await this.bot.sendMessage(msg.chat.id, `💰 **Bot Balance Check**\n\n⚠️ This feature needs implementation in SolanaService`);
+      // TODO: Implement bot balance checking via BaseService
+      await this.bot.sendMessage(msg.chat.id, `💰 **Bot Balance Check**\n\n⚠️ This feature needs implementation in BaseService`);
     } catch (error) {
       console.error('Admin balance error:', error);
       await this.bot.sendMessage(msg.chat.id, '❌ Error getting admin balance');
@@ -183,7 +183,7 @@ class AdminHandler {
       
       recentUsers.forEach((user, i) => {
         const verified = user.twitterFollowVerified ? '✅' : '❌';
-        const wallet = user.solanaAddress ? '💎' : '❌';
+        const wallet = user.baseAddress ? '💎' : '❌';
         message += `${i + 1}. @${user.username || user.firstName} ${verified} ${wallet}\n`;
       });
 

@@ -39,7 +39,7 @@ class InfoHandler {
 🐦 Twitter Follow: ${user.twitterFollowVerified ? '✅ Verified' : '❌ Not verified'}
 📅 Member Since: ${user.createdAt.toDateString()}
 
-💎 Wallet: \`${user.solanaAddress ? user.solanaAddress.slice(0,8) + '...' : 'Not set'}\`
+💎 Wallet: \`${user.baseAddress ? user.baseAddress.slice(0,8) + '...' : 'Not set'}\`
 👤 Twitter: @${user.twitterHandle || 'Not set'}
 
 🔗 **Use /referral to get your invite link!**
@@ -73,8 +73,8 @@ class InfoHandler {
           `🎁 **Airdrop Status: CLAIMED** ✅\n\n💰 You received: ${user.airdropAmount} $PONY\n🎉 Welcome bonus already sent to your wallet!\n\n🏇 Keep racing to win more $PONY!`
         );
       } else {
-        await this.bot.sendMessage(msg.chat.id, 
-          `🎁 **Airdrop Status: AVAILABLE** 🎯\n\n💰 You can still claim: **100 $PONY**\n\n📋 To claim:\n${user.solanaAddress ? '✅ Wallet registered' : '❌ Register wallet first'}\n❌ Verify your first tweet in any race\n\n🏇 Pick a horse and tweet to claim!`
+        await this.bot.sendMessage(msg.chat.id,
+          `🎁 **Airdrop Status: AVAILABLE** 🎯\n\n💰 You can still claim: **100 $PONY**\n\n📋 To claim:\n${user.baseAddress ? '✅ Wallet registered' : '❌ Register wallet first'}\n❌ Verify your first tweet in any race\n\n🏇 Pick a horse and tweet to claim!`
         );
       }
       

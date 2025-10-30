@@ -23,14 +23,26 @@ class PixelPoniesBot {
       console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
       console.log('- MONGODB_URI:', process.env.MONGODB_URI ? '✅ set' : '❌ missing');
       console.log('- TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '✅ set' : '❌ missing');
-      console.log('- SOLANA_PRIVATE_KEY:', process.env.SOLANA_PRIVATE_KEY ? '✅ set' : '❌ missing');
-      
+      console.log('- BASE_RPC_URL:', process.env.BASE_RPC_URL || 'using default (https://mainnet.base.org)');
+      console.log('- PONY_TOKEN_ADDRESS:', process.env.PONY_TOKEN_ADDRESS || 'using default from whitepaper');
+      console.log('- wallet.json:', require('fs').existsSync('./wallet.json') ? '✅ found' : '⚠️ not found (will use env fallback)');
+
       // Validate required environment variables
-      const required = ['MONGODB_URI', 'TELEGRAM_BOT_TOKEN', 'SOLANA_PRIVATE_KEY', 'PONY_TOKEN_MINT'];
+      const required = ['MONGODB_URI', 'TELEGRAM_BOT_TOKEN'];
       const missing = required.filter(key => !process.env[key]);
-      
+
       if (missing.length > 0) {
         throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+      }
+
+      // Check for wallet configuration
+      const hasWalletFile = require('fs').existsSync('./wallet.json');
+      const hasPrivateKeyEnv = !!process.env.BASE_PRIVATE_KEY;
+
+      if (!hasWalletFile && !hasPrivateKeyEnv) {
+        console.warn('⚠️ WARNING: No wallet configuration found!');
+        console.warn('⚠️ Please create wallet.json or set BASE_PRIVATE_KEY in .env');
+        console.warn('⚠️ Bot will start but blockchain transactions will fail.');
       }
       
       console.log('🔧 Connecting to MongoDB...');

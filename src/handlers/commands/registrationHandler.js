@@ -1,5 +1,5 @@
 import User from '../../models/User.js';
-import SolanaService from '../../services/SolanaService.js';
+import BaseService from '../../services/BaseService.js';
 import ReferralService from '../../services/ReferralService.js';
 
 /**
@@ -88,12 +88,12 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
       
       // Handle existing users updating their info
       if (user && walletAddress && twitterHandle) {
-        if (!SolanaService.validateSolanaAddress(walletAddress)) {
-          return this.bot.sendMessage(msg.chat.id, '❌ Invalid Solana address format');
+        if (!BaseService.validateAddress(walletAddress)) {
+          return this.bot.sendMessage(msg.chat.id, '❌ Invalid Base/Ethereum address format');
         }
-        
+
         twitterHandle = twitterHandle.replace('@', '');
-        user.solanaAddress = walletAddress;
+        user.baseAddress = walletAddress;
         user.twitterHandle = twitterHandle;
         user.twitterFollowVerified = false;
         await ReferralService.ensureReferralCode(user);
@@ -111,12 +111,12 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
         );
       }
       
-      if (!SolanaService.validateSolanaAddress(walletAddress)) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Invalid Solana address format');
+      if (!BaseService.validateAddress(walletAddress)) {
+        return this.bot.sendMessage(msg.chat.id, '❌ Invalid Base/Ethereum address format');
       }
 
       if (user) {
-        user.solanaAddress = walletAddress;
+        user.baseAddress = walletAddress;
         // Always update username/name info in case it changed
         user.username = msg.from.username || user.username;
         user.firstName = msg.from.first_name || user.firstName;
@@ -128,7 +128,7 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
           username: msg.from.username || 'UnknownUser',
           firstName: msg.from.first_name || 'User',
           lastName: msg.from.last_name,
-          solanaAddress: walletAddress,
+          baseAddress: walletAddress,
           referralCode: ReferralService.generateReferralCode(userId)
         });
       }
@@ -306,8 +306,8 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
         await user.save();
         this.awaitingTwitterHandle.delete(userId);
         
-        await this.bot.sendMessage(msg.chat.id, 
-          `✅ **Registration Complete!**\n\n🎉 Welcome @${twitterHandle}!\n💎 Wallet: ${user.solanaAddress.slice(0,8)}...\n🐦 Twitter: @${twitterHandle}\n\n🏇 **You're all set!** Use /race to join the next race and earn $PONY!`,
+        await this.bot.sendMessage(msg.chat.id,
+          `✅ **Registration Complete!**\n\n🎉 Welcome @${twitterHandle}!\n💎 Wallet: ${user.baseAddress.slice(0,8)}...\n🐦 Twitter: @${twitterHandle}\n\n🏇 **You're all set!** Use /race to join the next race and earn $PONY!`,
           { parse_mode: 'Markdown' }
         );
       }

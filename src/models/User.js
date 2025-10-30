@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   username: String,
   firstName: String,
   lastName: String,
-  solanaAddress: String,
+  baseAddress: String, // Base/Ethereum wallet address
   twitterHandle: String,
   twitterFollowVerified: { type: Boolean, default: false },
   totalWon: { type: Number, default: 0 },
