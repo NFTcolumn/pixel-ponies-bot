@@ -101,7 +101,7 @@ ${horsesList}
       }
 
       // Check if betting is closed (1 minute before race)
-      if (!TimeUtils.isWithinBettingWindow(race.startTime, 29)) {
+      if (!TimeUtils.isWithinBettingWindow(race.startTime, 9)) {
         const nextRaceInfo = TimeUtils.getNextRaceInfo();
         return this.bot.sendMessage(msg.chat.id,
           `🔒 **Betting Closed!**\n\nBetting closes 1 minute before each race.\n\n⏰ Next race: ${nextRaceInfo.timeString} ${nextRaceInfo.period} UTC\n⏳ Betting opens right after the race!`
@@ -184,7 +184,7 @@ ${horsesList}
       }
 
       // Check if betting is closed (1 minute before race)
-      if (!TimeUtils.isWithinBettingWindow(race.startTime, 29)) {
+      if (!TimeUtils.isWithinBettingWindow(race.startTime, 9)) {
         const nextRaceInfo = TimeUtils.getNextRaceInfo();
         return this.bot.sendMessage(msg.chat.id,
           `🔒 **Betting Closed!**\n\nBetting closes 1 minute before each race.\n\n⏰ Next race: ${nextRaceInfo.timeString} ${nextRaceInfo.period} UTC\n⏳ Betting opens right after the race!`
@@ -242,10 +242,10 @@ ${horsesList}
 📅 **Date:** ${raceInfo.date}
 
 🏇 **RACE SCHEDULE:**
-⚡ **Every 30 minutes** at :00 and :30
-🔥 **48 races per day!**
+⚡ **Every 10 minutes** at :00, :10, :20, :30, :40, :50
+🔥 **144 races per day!**
 
-⏱️ **Betting:** 15 minutes per race
+⏱️ **Betting:** 9 minutes per race (closes 1 min before)
 💰 **Race Reward:** ${formatPonyAmount(REWARDS.PER_RACE)} $PONY per participant!
 🎁 **Signup Bonus:** ${formatPonyAmount(REWARDS.SIGNUP)} $PONY!
 

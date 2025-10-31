@@ -33,7 +33,7 @@ class TimeUtils {
   }
 
   /**
-   * Get the next scheduled race time (every 30 minutes on :00 and :30)
+   * Get the next scheduled race time (every 10 minutes at :00, :10, :20, :30, :40, :50)
    * @returns {Date} Next race time in UTC
    */
   static getNextRaceTime() {
@@ -41,13 +41,15 @@ class TimeUtils {
     const currentMinute = now.getUTCMinutes();
     const nextRace = new Date(now);
 
-    // Races are at :00 and :30
-    if (currentMinute < 30) {
-      // Next race is at :30 of current hour
-      nextRace.setUTCMinutes(30, 0, 0);
-    } else {
+    // Races are every 10 minutes at :00, :10, :20, :30, :40, :50
+    const nextRaceMinute = Math.ceil(currentMinute / 10) * 10;
+
+    if (nextRaceMinute >= 60) {
       // Next race is at :00 of next hour
       nextRace.setUTCHours(nextRace.getUTCHours() + 1, 0, 0, 0);
+    } else {
+      // Next race is in current hour
+      nextRace.setUTCMinutes(nextRaceMinute, 0, 0);
     }
 
     return nextRace;
@@ -86,19 +88,19 @@ class TimeUtils {
   }
 
   /**
-   * Get cron expression for race scheduling (every 30 minutes at :00 and :30)
-   * @returns {string} Cron expression for races every 30 minutes
+   * Get cron expression for race scheduling (every 10 minutes at :00, :10, :20, :30, :40, :50)
+   * @returns {string} Cron expression for races every 10 minutes
    */
   static getRaceCronExpression() {
-    return '0,30 * * * *';
+    return '0,10,20,30,40,50 * * * *';
   }
 
   /**
-   * Get cron expression for race warnings (1 minute before races at :29 and :59)
+   * Get cron expression for race warnings (1 minute before races at :09, :19, :29, :39, :49, :59)
    * @returns {string} Cron expression for 1-minute warnings
    */
   static getWarningCronExpression() {
-    return '29,59 * * * *';
+    return '9,19,29,39,49,59 * * * *';
   }
 
   /**
@@ -148,13 +150,13 @@ class TimeUtils {
   /**
    * Validate that a race time matches expected schedule
    * @param {Date} raceTime - Time to validate
-   * @returns {boolean} True if race time is at :00 or :30
+   * @returns {boolean} True if race time is at :00, :10, :20, :30, :40, or :50
    */
   static isValidRaceTime(raceTime) {
     const minute = raceTime.getUTCMinutes();
     const second = raceTime.getUTCSeconds();
 
-    return (minute === 0 || minute === 30) && second === 0;
+    return (minute % 10 === 0) && second === 0;
   }
 
   /**
@@ -210,8 +212,8 @@ class TimeUtils {
     if (isExact) return true;
 
     // If not exact, check if it's within tolerance of a valid race time
-    // Calculate the nearest :00 or :30 mark
-    const nearestRaceMinute = minute < 30 ? 0 : 30;
+    // Calculate the nearest 10-minute mark (:00, :10, :20, :30, :40, :50)
+    const nearestRaceMinute = Math.round(minute / 10) * 10;
     const expectedTime = new Date(raceTime);
     expectedTime.setUTCMinutes(nearestRaceMinute, 0, 0);
 

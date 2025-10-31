@@ -71,8 +71,8 @@ class SchedulerHandler {
     this.scheduledJobs.set('cleanup', cleanupJob);
     
     console.log('✅ Enhanced scheduler started:');
-    console.log('  🏇 Races: Every 30 minutes at :00 and :30 (0,30 * * * *)');
-    console.log('  ⚠️  1-min warnings: Every 30 minutes at :29 and :59 (29,59 * * * *)');
+    console.log('  🏇 Races: Every 10 minutes at :00, :10, :20, :30, :40, :50 (0,10,20,30,40,50 * * * *)');
+    console.log('  ⚠️  1-min warnings: At :09, :19, :29, :39, :49, :59 (9,19,29,39,49,59 * * * *)');
     console.log('  📢 Reminders: Every hour at :30 (30 * * * *)');
     console.log('  🧹 Maintenance: Every 30 minutes (*/30 * * * *)');
   }
@@ -194,10 +194,10 @@ class SchedulerHandler {
 
     try {
       const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Races every 30 minutes! Join now with `/register` and earn 1B $PONY signup bonus! 🪙',
+        '🏇 **Pixel Ponies is LIVE!** Races every 10 minutes! Join now with `/register` and earn 1B $PONY signup bonus! 🪙',
         '🎁 **MASSIVE REWARDS!** 1B signup + 100M per race + 250M per referral! Register now and start earning! 🏆',
-        '🚀 **Race Every 30 Minutes!** Non-stop action on Base blockchain! Get started with `/register` 💰',
-        '🏁 **Pixel Ponies Racing Club!** 48 races per day! Free to join, real crypto rewards! Next race soon! 🎯'
+        '🚀 **Race Every 10 Minutes!** Non-stop action on Base blockchain! Get started with `/register` 💰',
+        '🏁 **Pixel Ponies Racing Club!** 144 races per day! Free to join, real crypto rewards! Next race soon! 🎯'
       ];
 
       const randomMessage = messages[Math.floor(Math.random() * messages.length)];
@@ -354,7 +354,7 @@ ${horsesList}
 🐦 Tweet your pick and /verify your tweet!
 💎 **Earn 100M $PONY per race!**
 
-**🏇 RACES EVERY 30 MINUTES AT :00 AND :30!**
+**🏇 RACES EVERY 10 MINUTES!**
 `;
 
       await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
