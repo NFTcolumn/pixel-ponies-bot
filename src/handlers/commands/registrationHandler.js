@@ -56,13 +56,13 @@ Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
 /register - Start registration (wallet + Twitter)
 /howtoplay - Complete step-by-step guide
 /race - Current race info
-/racetime - Next race schedule & countdown
+/racetime - Next race schedule and countdown
 /balance - Your stats
 /airdrop - Check bonus status
-/referral - Your referral stats & link
+/referral - Your referral stats and link
 /invite - Invite friends for PONY rewards
 
-💬 **You can use all commands here in private chat with @PixelPony_bot or in the group!**
+💬 **You can use all commands here in private chat with @PixelPony\_bot or in the group!**
 
 **💰 Jackpot grows with community size!**
 `;
