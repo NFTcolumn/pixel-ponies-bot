@@ -113,19 +113,17 @@ class BotHandler {
    * Handle callback queries (button presses)
    */
   async handleCallback(query) {
-    await this.bot.answerCallbackQuery(query.id);
-    
-    // Delegate to registration handler for Twitter-related callbacks
-    await this.registrationHandler.handleTwitterCallback(query);
+    // Delegate to registration handler for registration callbacks
+    await this.registrationHandler.handleCallback(query);
   }
 
   /**
    * Handle general messages (delegation to specialized handlers)
    */
   async handleMessage(msg) {
-    // Delegate to registration handler for Twitter handle input
-    const handled = await this.registrationHandler.handleTwitterMessage(msg);
-    
+    // Delegate to registration handler for wallet address input
+    const handled = await this.registrationHandler.handleMessage(msg);
+
     if (!handled) {
       // Could add other message handling logic here if needed
       // For now, just ignore unhandled messages
