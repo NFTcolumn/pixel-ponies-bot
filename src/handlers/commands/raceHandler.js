@@ -21,7 +21,18 @@ class RaceHandler {
    */
   async handleRace(msg) {
     const userId = msg.from.id.toString();
-    
+
+    // Debug logging for user identity
+    console.log(`🔍 /race command from user:`, {
+      userId: userId,
+      username: msg.from.username,
+      firstName: msg.from.first_name,
+      lastName: msg.from.last_name,
+      isBot: msg.from.is_bot,
+      chatType: msg.chat.type,
+      chatId: msg.chat.id
+    });
+
     try {
       const race = await RaceService.getCurrentRace();
       
@@ -38,8 +49,16 @@ class RaceHandler {
       });
 
       const userBet = race.participants.find(p => p.userId === userId);
-      const betStatus = userBet ? 
-        `🎯 **Your Bet:** #${userBet.horseId} ${userBet.horseName}\n` : 
+
+      // Debug logging for bet lookup
+      console.log(`🔍 Looking for bet:`, {
+        searchingForUserId: userId,
+        participantUserIds: race.participants.map(p => p.userId),
+        found: !!userBet
+      });
+
+      const betStatus = userBet ?
+        `🎯 **Your Bet:** #${userBet.horseId} ${userBet.horseName}\n` :
         `🎯 **Your Bet:** None yet\n`;
 
       const message = `
