@@ -12,6 +12,8 @@
     "backup-db": "node scripts/backupDatabase.js",
     "restore-db": "node scripts/restoreDatabase.js",
     "clear-db": "node scripts/clearDatabase.js",
+    "clear-users": "node scripts/clearUsers.js",
+    "check-balance": "node scripts/checkBalance.js",
     "test-transfer": "node scripts/testTransfer.js"
   },
   "keywords": ["telegram", "bot", "base", "ethereum", "erc20", "racing", "gambling"],
