@@ -117,3 +117,4 @@ docker-compose.override.yml
 # Backup files
 *.backup.js
 *.backup
+backups/

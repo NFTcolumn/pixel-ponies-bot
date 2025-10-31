@@ -4,12 +4,12 @@ import readline from 'readline';
 
 dotenv.config();
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
 async function clearDatabase() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
   try {
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI);

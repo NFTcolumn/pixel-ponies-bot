@@ -9,6 +9,8 @@
     "dev": "nodemon src/index.js",
     "lint": "eslint src/",
     "test": "jest",
+    "backup-db": "node scripts/backupDatabase.js",
+    "restore-db": "node scripts/restoreDatabase.js",
     "clear-db": "node scripts/clearDatabase.js",
     "test-transfer": "node scripts/testTransfer.js"
   },
