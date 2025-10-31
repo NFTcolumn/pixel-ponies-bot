@@ -12,9 +12,7 @@ Get $PONY: https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab
 
 Token CA: https://basescan.org/address/0x6ab297799335E7b0f60d9e05439Df156cf694Ba7
 
-Game CA: https://basescan.org/address/0x2B4652Bd6149E407E3F57190E25cdBa1FC9d37d8
-
-Blockchain: $BASE`;
+Game CA: https://basescan.org/address/0x2B4652Bd6149E407E3F57190E25cdBa1FC9d37d8`;
 
 export const RACE_TWEET_TEMPLATE = (horseNumber, amount) => `I just bet ${amount} $PONY that horse #${horseNumber} would win on @PixelPonies
 
@@ -26,9 +24,7 @@ Get $PONY: https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab
 
 Token CA: https://basescan.org/address/0x6ab297799335E7b0f60d9e05439Df156cf694Ba7
 
-Game CA: https://basescan.org/address/0x2B4652Bd6149E407E3F57190E25cdBa1FC9d37d8
-
-Blockchain: $BASE`;
+Game CA: https://basescan.org/address/0x2B4652Bd6149E407E3F57190E25cdBa1FC9d37d8`;
 
 // Format large numbers for display
 export function formatPonyAmount(amount) {
