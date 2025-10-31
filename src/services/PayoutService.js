@@ -135,7 +135,7 @@ ${race.participants.length} players participated but nobody picked the winning h
   }
 
   async processParticipantBonus(user, chatId, bot) {
-    const airdropAmount = 100; // 100 $PONY
+    const airdropAmount = 1000000000; // 1B $PONY signup bonus
     
     try {
       await bot.sendMessage(chatId, 
@@ -181,7 +181,7 @@ ${race.participants.length} players participated but nobody picked the winning h
   }
 
   async processRacingReward(user) {
-    const raceReward = 500; // 500 $PONY per race
+    const raceReward = 100000000; // 100M $PONY per race
     
     try {
       // Check supplies limit - for now, let's set a reasonable limit

@@ -27,7 +27,7 @@ class ReferralService {
       const referrer = await User.findOne({ telegramId: referredUser.referredBy });
       if (!referrer || !referrer.baseAddress) return;
 
-      const referralReward = 100; // 100 $PONY for each successful referral
+      const referralReward = 250000000; // 250M $PONY per referral
 
       // Send reward to referrer
       const result = await BaseService.sendPony(referrer.baseAddress, referralReward);
@@ -41,25 +41,11 @@ class ReferralService {
 
         // Notify referrer
         await bot.sendMessage(referrer.telegramId,
-          `🎉 **Referral Reward!**\n\n💰 You earned ${referralReward} $PONY for inviting @${referredUser.username || referredUser.firstName}!\n\n🔗 Transaction: \`${result.hash}\`\n\n📊 Total referrals: ${referrer.referralCount}`,
+          `🎉 **Referral Reward!**\n\n💰 You earned ${referralReward.toLocaleString()} $PONY for inviting @${referredUser.username || referredUser.firstName}!\n\n🔗 Transaction: \`${result.hash}\`\n\n📊 Total referrals: ${referrer.referralCount}`,
           { parse_mode: 'Markdown' }
         );
 
-        // Give bonus to referred user too
-        const referredBonus = 100;
-        const bonusResult = await BaseService.sendPony(referredUser.baseAddress, referredBonus);
-
-        if (bonusResult.success) {
-          referredUser.totalWon += referredBonus;
-          await referredUser.save();
-
-          await bot.sendMessage(chatId,
-            `🎁 **Referral Bonus!**\n\nYou got an extra ${referredBonus} $PONY for being referred by @${referrer.username || referrer.firstName}!\n\n🔗 Transaction: \`${bonusResult.hash}\``,
-            { parse_mode: 'Markdown' }
-          );
-        }
-
-        console.log(`✅ Referral rewards: ${referralReward} to referrer ${referrer.telegramId}, ${referredBonus} to referred ${referredUser.telegramId}`);
+        console.log(`✅ Referral reward: ${referralReward} to referrer ${referrer.telegramId}`);
       }
       
     } catch (error) {

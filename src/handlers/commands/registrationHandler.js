@@ -1,6 +1,7 @@
 import User from '../../models/User.js';
 import BaseService from '../../services/BaseService.js';
 import ReferralService from '../../services/ReferralService.js';
+import { REGISTRATION_TWEET_TEMPLATE, REWARDS, LINKS, formatPonyAmount } from '../../utils/tweetTemplates.js';
 
 /**
  * Registration Command Handler
@@ -10,6 +11,8 @@ class RegistrationHandler {
   constructor(bot) {
     this.bot = bot;
     this.awaitingTwitterHandle = new Set();
+    this.awaitingTweetUrl = new Set();
+    this.awaitingWalletAddress = new Set();
   }
 
   /**
@@ -38,33 +41,37 @@ class RegistrationHandler {
       }
 
       const message = `
-🏇 **Welcome to Pixel Ponies!**
+🏇 **Welcome to Pixel Ponies on Base!**
 
-The most exciting crypto horse racing with real $PONY rewards!
+The most exciting crypto horse racing with MASSIVE $PONY rewards!
 
-🎁 **RACING REWARDS: 500 $PONY per race!**
-Plus 100 $PONY welcome bonus! Invite friends to boost the jackpot!
+🎁 **HUGE REWARDS:**
+💎 **${formatPonyAmount(REWARDS.SIGNUP)} $PONY** signup bonus!
+🏇 **${formatPonyAmount(REWARDS.PER_RACE)} $PONY** per race!
+👥 **${formatPonyAmount(REWARDS.REFERRAL)} $PONY** per referral!
 
-**How to Play:**
-1. Register: \`/register YOUR_WALLET\`
-2. Follow @pxponies and connect Twitter (guided)
-3. Join races with \`/race\` and pick your pony
-4. Tweet your pick and verify for entry
-5. Earn 500 $PONY per race + jackpot winnings!
+**How to Register & Play:**
+✅ Step 1: Join our Telegram (you're here!)
+✅ Step 2: Follow @pxponies on Twitter
+✅ Step 3: Share registration tweet
+✅ Step 4: Add your Base wallet
+✅ Step 5: Race and earn!
 
-**Commands:**
-/register - Start registration (wallet + Twitter)
-/howtoplay - Complete step-by-step guide
-/race - Current race info
-/racetime - Next race schedule and countdown
-/balance - Your stats
-/airdrop - Check bonus status
-/referral - Your referral stats and link
-/invite - Invite friends for PONY rewards
+**Start Now:**
+/register - Begin your 5-step registration
+/howtoplay - Detailed guide
+/referral - Get your invite link
 
-💬 **You can use all commands here in private chat with @PixelPony\_bot or in the group!**
+**Race Commands:**
+/race - View current race
+/balance - Check your stats
 
-**💰 Jackpot grows with community size!**
+**Links:**
+🌐 Website: ${LINKS.WEBSITE}
+🔗 Token: ${LINKS.TOKEN_CA}
+⛓️ Blockchain: Base ($BASE)
+
+💰 **Instant payouts to your wallet!**
 `;
 
       await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });
