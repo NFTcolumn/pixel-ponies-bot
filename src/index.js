@@ -1,6 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import BotHandler from './handlers/BotHandler.js';
 import DataIntegrityManager from './utils/dataIntegrity.js';
 import ErrorHandler from './utils/errorHandler.js';
@@ -25,7 +26,7 @@ class PixelPoniesBot {
       console.log('- TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '✅ set' : '❌ missing');
       console.log('- BASE_RPC_URL:', process.env.BASE_RPC_URL || 'using default (https://mainnet.base.org)');
       console.log('- PONY_TOKEN_ADDRESS:', process.env.PONY_TOKEN_ADDRESS || 'using default from whitepaper');
-      console.log('- wallet.json:', require('fs').existsSync('./wallet.json') ? '✅ found' : '⚠️ not found (will use env fallback)');
+      console.log('- wallet.json:', fs.existsSync('./wallet.json') ? '✅ found' : '⚠️ not found (will use env fallback)');
 
       // Validate required environment variables
       const required = ['MONGODB_URI', 'TELEGRAM_BOT_TOKEN'];
@@ -36,7 +37,7 @@ class PixelPoniesBot {
       }
 
       // Check for wallet configuration
-      const hasWalletFile = require('fs').existsSync('./wallet.json');
+      const hasWalletFile = fs.existsSync('./wallet.json');
       const hasPrivateKeyEnv = !!process.env.BASE_PRIVATE_KEY;
 
       if (!hasWalletFile && !hasPrivateKeyEnv) {
