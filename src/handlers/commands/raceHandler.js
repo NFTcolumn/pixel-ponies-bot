@@ -4,6 +4,7 @@ import RaceService from '../../services/RaceService.js';
 import PayoutService from '../../services/PayoutService.js';
 import ReferralService from '../../services/ReferralService.js';
 import TimeUtils from '../../utils/timeUtils.js';
+import { RACE_TWEET_TEMPLATE, REWARDS, formatPonyAmount } from '../../utils/tweetTemplates.js';
 
 /**
  * Race Command Handler
@@ -50,8 +51,9 @@ ${betStatus}
 🐎 **Choose Your Pony:**
 ${horsesList}
 
-💰 **Prize Pool:** ${race.prizePool} $PONY
+💰 **Prize Pool:** ${formatPonyAmount(race.prizePool)} $PONY
 👥 **Players:** ${race.participants.length}
+🎁 **Race Reward:** ${formatPonyAmount(REWARDS.PER_RACE)} $PONY per participant!
 
 🎯 **To Enter:**
 1. Pick pony: \`/horse NUMBER\`
@@ -78,15 +80,15 @@ ${horsesList}
     try {
       // Check user registration
       const user = await User.findOne({ telegramId: userId });
-      if (!user || !user.baseAddress || !user.twitterHandle) {
+      if (!user || !user.baseAddress) {
         return this.bot.sendMessage(msg.chat.id,
-          '❌ Please register first with /register YOUR_WALLET @your_twitter'
+          '❌ Please complete registration first with /register'
         );
       }
 
       if (!user.twitterFollowVerified) {
-        return this.bot.sendMessage(msg.chat.id, 
-          '❌ **Follow Required for Airdrops & Rewards!**\n\n🐦 Please follow @pxponies first with /verify_follow to participate in races and receive rewards!'
+        return this.bot.sendMessage(msg.chat.id,
+          '❌ **Registration Incomplete!**\n\n🐦 Please complete your registration with /register to participate in races and receive rewards!'
         );
       }
 
@@ -130,19 +132,8 @@ ${horsesList}
         return this.bot.sendMessage(msg.chat.id, '❌ Error saving your selection. Please try again.');
       }
 
-      // Generate tweet text
-      const tweetText = `🐎 I bet on ${horse.name} ${horse.emoji} on #PixelPonies! 
-
-🏆 How To WIN $PONY 
-
-1. Join here 👉 https://t.me/pixelponies 
-
-2. PLAY and EARN 💰 500 $PONY for every race you enter! 🎯
-
-#crypto #Games #PumpFun 🚀
-$PONY $SOL $BASE #MakeCryptoFunAgain 💎
-
-🛒 BUY $PONY: https://pump.fun/coin/4RuwkFn3LStf1YeMi3b46qtpyW845bHayog3P8Qqpump`;
+      // Generate tweet text using template
+      const tweetText = RACE_TWEET_TEMPLATE(horseNumber, formatPonyAmount(REWARDS.PER_RACE));
 
       const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
       const keyboard = {
@@ -244,9 +235,9 @@ $PONY $SOL $BASE #MakeCryptoFunAgain 💎
 • ☀️ 12:00 PM UTC (Noon)
 
 ⏱️ **Betting:** Open until race starts
-💰 **Prize Pool:** 500,000 $PONY
+💰 **Race Reward:** ${formatPonyAmount(REWARDS.PER_RACE)} $PONY per participant!
 
-🎯 Use \`/register YOUR_WALLET\` to join!
+🎯 Use \`/register\` to join!
 🔄 Use \`/racetime\` anytime for updates
 `;
 
