@@ -172,13 +172,11 @@ ${horsesList}
       // Get current race
       const race = await RaceService.getCurrentRace();
       if (!race || race.status !== 'betting_open') {
-        return this.bot.sendMessage(msg.chat.id, '❌ No active race');
+        return this.bot.sendMessage(msg.chat.id, '❌ No active race for betting. Next race starts soon!');
       }
 
-      // Check if still within betting window
-      if (!TimeUtils.isWithinBettingWindow(race.startTime, 15)) {
-        return this.bot.sendMessage(msg.chat.id, '❌ Betting window has closed for this race');
-      }
+      // No need for time-based betting window check - race status is authoritative
+      // The race scheduler manages the betting_open status for the full 15 minutes
 
       // Get temporary selection
       const tempSelection = await TempSelection.findOne({ userId, raceId: race.raceId });
