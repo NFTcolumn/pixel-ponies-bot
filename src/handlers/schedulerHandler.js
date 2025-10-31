@@ -71,8 +71,8 @@ class SchedulerHandler {
     this.scheduledJobs.set('cleanup', cleanupJob);
     
     console.log('✅ Enhanced scheduler started:');
-    console.log('  🏇 Races: Daily at 12:00 AM & 12:00 PM UTC (0 0,12 * * *)');
-    console.log('  ⚠️  5-min warnings: 11:55 PM & 11:55 AM UTC (55 23,11 * * *)');
+    console.log('  🏇 Races: Every 30 minutes at :00 and :30 (0,30 * * * *)');
+    console.log('  ⚠️  5-min warnings: Every 30 minutes at :25 and :55 (25,55 * * * *)');
     console.log('  📢 Reminders: Every hour at :30 (30 * * * *)');
     console.log('  🧹 Maintenance: Every 30 minutes (*/30 * * * *)');
   }
@@ -171,33 +171,29 @@ class SchedulerHandler {
       console.warn('⚠️ MAIN_CHANNEL_ID not set, skipping race warning');
       return;
     }
-    
+
     try {
-      const now = TimeUtils.getCurrentUTC();
-      const utcHour = now.getUTCHours();
-      const nextRaceTime = utcHour === 23 ? '12:00 AM' : '12:00 PM';
-      
+      const raceInfo = TimeUtils.getNextRaceInfo();
+
       const message = `
 ⚠️ **5 MINUTE WARNING!** ⚠️
 
-🏇 Next race starts at **${nextRaceTime} UTC**
+🏇 Next race starts at **${raceInfo.timeString} ${raceInfo.period} UTC**
 ⏰ **5 MINUTES** to register and enter!
 
 🚀 **QUICK START:**
-1. \`/register YOUR_WALLET\` 
-2. Follow @pxponies
-3. Enter Twitter handle
-4. Pick your horse when race starts!
+1. \`/register\` - Complete registration
+2. Pick your horse when race starts!
 
-💰 **Jackpot: Up to 500,000 $PONY!**
-🎁 **FREE registration + welcome bonus!**
+💰 **Earn 100M $PONY per race!**
+🎁 **Plus 1B $PONY signup bonus!**
 
 **DON'T MISS OUT!** 🏆
 `;
 
       await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
-      console.log(`⚠️ Sent 5-minute race warning for ${nextRaceTime}`);
-      
+      console.log(`⚠️ Sent 5-minute race warning for ${raceInfo.timeString}`);
+
     } catch (error) {
       console.error('❌ Race warning error:', error);
     }
@@ -212,20 +208,20 @@ class SchedulerHandler {
       console.warn('⚠️ MAIN_CHANNEL_ID not set, skipping hourly reminder');
       return;
     }
-    
+
     try {
       const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Next race at 12:00 AM or 12:00 PM UTC! Join now with `/register` and earn FREE $PONY! 🪙',
-        '🎁 **FREE $PONY AWAITS!** Register your wallet, follow @pxponies, and win real crypto in our daily races! 🏆',
-        '🚀 **Daily Crypto Racing!** Two chances to win big every day! Get started with `/register YOUR_WALLET` 💰',
-        '🏁 **Pixel Ponies Racing Club!** Free to join, free to play, real crypto rewards! Next race coming up! 🎯'
+        '🏇 **Pixel Ponies is LIVE!** Races every 30 minutes! Join now with `/register` and earn 1B $PONY signup bonus! 🪙',
+        '🎁 **MASSIVE REWARDS!** 1B signup + 100M per race + 250M per referral! Register now and start earning! 🏆',
+        '🚀 **Race Every 30 Minutes!** Non-stop action on Base blockchain! Get started with `/register` 💰',
+        '🏁 **Pixel Ponies Racing Club!** 48 races per day! Free to join, real crypto rewards! Next race soon! 🎯'
       ];
-      
+
       const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-      
+
       await this.sendMessageSafely(channelId, randomMessage, { parse_mode: 'Markdown' });
       console.log('📢 Sent hourly reminder');
-      
+
     } catch (error) {
       console.error('❌ Hourly reminder error:', error);
     }
@@ -261,9 +257,9 @@ class SchedulerHandler {
   async checkAndFinishIncompleteRaces() {
     try {
       console.log('🔍 Checking for incomplete races...');
-      
-      // Find races that are not finished and were created more than 30 minutes ago
-      const cutoffTime = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes ago
+
+      // Find races that are not finished and were created more than 1 hour ago
+      const cutoffTime = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
       const incompleteRaces = await Race.find({
         status: { $ne: 'finished' },
         createdAt: { $lt: cutoffTime }
@@ -360,21 +356,22 @@ class SchedulerHandler {
       });
 
       const message = `
-🚨 **DAILY RACE IS STARTING!** 🚨
-📺 **LIVE FROM PIXEL PONIES RACETRACK** 
+🚨 **RACE STARTING NOW!** 🚨
+📺 **LIVE FROM PIXEL PONIES RACETRACK**
 
 🏁 Race ID: ${race.raceId}
 
 🐎 **TODAY'S FIELD:**
 ${horsesList}
 
-💰 **Prize Pool:** ${race.prizePool} $PONY
+💰 **Prize Pool:** ${race.prizePool.toLocaleString()} $PONY
 ⏰ **15 MINUTES** to enter!
 
 🎯 Use /horse NUMBER to pick your champion!
 🐦 Tweet your pick and /verify your tweet!
+💎 **Earn 100M $PONY per race!**
 
-**DAILY RACES: 12:00 AM & 12:00 PM UTC** 🏁
+**RACES EVERY 30 MINUTES!** 🏁
 `;
 
       await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });

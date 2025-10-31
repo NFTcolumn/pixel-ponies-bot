@@ -230,12 +230,13 @@ ${horsesList}
 ⏳ **Time Until Race:** ${raceInfo.countdown}
 📅 **Date:** ${raceInfo.date}
 
-🏇 **DAILY SCHEDULE:**
-• 🌙 12:00 AM UTC (Midnight)
-• ☀️ 12:00 PM UTC (Noon)
+🏇 **RACE SCHEDULE:**
+⚡ **Every 30 minutes** at :00 and :30
+🔥 **48 races per day!**
 
-⏱️ **Betting:** Open until race starts
+⏱️ **Betting:** 15 minutes per race
 💰 **Race Reward:** ${formatPonyAmount(REWARDS.PER_RACE)} $PONY per participant!
+🎁 **Signup Bonus:** ${formatPonyAmount(REWARDS.SIGNUP)} $PONY!
 
 🎯 Use \`/register\` to join!
 🔄 Use \`/racetime\` anytime for updates

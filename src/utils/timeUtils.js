@@ -33,34 +33,24 @@ class TimeUtils {
   }
 
   /**
-   * Get the next scheduled race time (12:00 AM or 12:00 PM UTC)
+   * Get the next scheduled race time (every 30 minutes on :00 and :30)
    * @returns {Date} Next race time in UTC
    */
   static getNextRaceTime() {
     const now = new Date();
-    const currentUTC = now.getTime();
-    
-    // Create race times for today
-    const todayMidnight = new Date();
-    todayMidnight.setUTCHours(0, 0, 0, 0);
-    
-    const todayNoon = new Date();
-    todayNoon.setUTCHours(12, 0, 0, 0);
-    
-    const tomorrowMidnight = new Date(todayMidnight);
-    tomorrowMidnight.setUTCDate(todayMidnight.getUTCDate() + 1);
-    
-    // Determine next race time
-    if (currentUTC < todayMidnight.getTime()) {
-      // Before today's midnight (shouldn't normally happen)
-      return todayMidnight;
-    } else if (currentUTC < todayNoon.getTime()) {
-      // Before today's noon - next race is noon
-      return todayNoon;
+    const currentMinute = now.getUTCMinutes();
+    const nextRace = new Date(now);
+
+    // Races are at :00 and :30
+    if (currentMinute < 30) {
+      // Next race is at :30 of current hour
+      nextRace.setUTCMinutes(30, 0, 0);
     } else {
-      // After today's noon - next race is tomorrow's midnight
-      return tomorrowMidnight;
+      // Next race is at :00 of next hour
+      nextRace.setUTCHours(nextRace.getUTCHours() + 1, 0, 0, 0);
     }
+
+    return nextRace;
   }
 
   /**
@@ -96,19 +86,19 @@ class TimeUtils {
   }
 
   /**
-   * Get cron expression for race scheduling (0 0,12 * * *)
-   * @returns {string} Cron expression for 12:00 AM and 12:00 PM UTC
+   * Get cron expression for race scheduling (every 30 minutes at :00 and :30)
+   * @returns {string} Cron expression for races every 30 minutes
    */
   static getRaceCronExpression() {
-    return '0 0,12 * * *';
+    return '0,30 * * * *';
   }
 
   /**
-   * Get cron expression for race warnings (55 23,11 * * *)
-   * @returns {string} Cron expression for 11:55 PM and 11:55 AM UTC
+   * Get cron expression for race warnings (5 minutes before races at :25 and :55)
+   * @returns {string} Cron expression for 5-minute warnings
    */
   static getWarningCronExpression() {
-    return '55 23,11 * * *';
+    return '25,55 * * * *';
   }
 
   /**
@@ -132,21 +122,24 @@ class TimeUtils {
   }
 
   /**
-   * Get next race period (AM/PM) and time string
+   * Get next race period and time string
    * @returns {object} Object with time and period information
    */
   static getNextRaceInfo() {
     const nextRace = this.getNextRaceTime();
     const hour = nextRace.getUTCHours();
-    const isMidday = hour === 12;
-    const isMidnight = hour === 0;
-    
+    const minute = nextRace.getUTCMinutes();
+
+    // Format time as HH:MM
+    const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+    // Determine AM/PM
+    const period = hour < 12 ? 'AM' : 'PM';
+
     return {
       time: nextRace,
-      timeString: '12:00',
-      period: isMidnight ? 'AM (Midnight)' : 'PM (Noon)',
-      isMidday,
-      isMidnight,
+      timeString,
+      period,
       date: nextRace.toDateString(),
       countdown: this.formatCountdown(this.getTimeUntilNextRace())
     };
@@ -155,14 +148,13 @@ class TimeUtils {
   /**
    * Validate that a race time matches expected schedule
    * @param {Date} raceTime - Time to validate
-   * @returns {boolean} True if race time is at 12:00 AM or 12:00 PM UTC
+   * @returns {boolean} True if race time is at :00 or :30
    */
   static isValidRaceTime(raceTime) {
-    const hour = raceTime.getUTCHours();
     const minute = raceTime.getUTCMinutes();
     const second = raceTime.getUTCSeconds();
-    
-    return (hour === 0 || hour === 12) && minute === 0 && second === 0;
+
+    return (minute === 0 || minute === 30) && second === 0;
   }
 
   /**
@@ -208,33 +200,27 @@ class TimeUtils {
    * @returns {boolean} True if race time is valid within tolerance
    */
   static isValidRaceTimeWithTolerance(raceTime, toleranceMs = 60000) {
-    const hour = raceTime.getUTCHours();
     const minute = raceTime.getUTCMinutes();
     const second = raceTime.getUTCSeconds();
     const millisecond = raceTime.getUTCMilliseconds();
-    
-    // Check if it's exactly 12:00:00 AM or PM
-    const isExact = (hour === 0 || hour === 12) && minute === 0 && second === 0 && millisecond === 0;
-    
+
+    // Check if it's exactly at :00 or :30
+    const isExact = (minute === 0 || minute === 30) && second === 0 && millisecond === 0;
+
     if (isExact) return true;
-    
+
     // If not exact, check if it's within tolerance of a valid race time
-    const expectedTimes = [
-      new Date(raceTime),
-      new Date(raceTime)
-    ];
-    
-    expectedTimes[0].setUTCHours(0, 0, 0, 0); // Midnight
-    expectedTimes[1].setUTCHours(12, 0, 0, 0); // Noon
-    
-    for (const expectedTime of expectedTimes) {
-      const timeDiff = Math.abs(raceTime.getTime() - expectedTime.getTime());
-      if (timeDiff <= toleranceMs) {
-        console.log(`⚠️ Race time within tolerance: ${timeDiff}ms from expected ${expectedTime.toISOString()}`);
-        return true;
-      }
+    // Calculate the nearest :00 or :30 mark
+    const nearestRaceMinute = minute < 30 ? 0 : 30;
+    const expectedTime = new Date(raceTime);
+    expectedTime.setUTCMinutes(nearestRaceMinute, 0, 0);
+
+    const timeDiff = Math.abs(raceTime.getTime() - expectedTime.getTime());
+    if (timeDiff <= toleranceMs) {
+      console.log(`⚠️ Race time within tolerance: ${timeDiff}ms from expected ${expectedTime.toISOString()}`);
+      return true;
     }
-    
+
     return false;
   }
 }

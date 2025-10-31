@@ -43,21 +43,21 @@ class RaceService {
       position: null
     }));
 
-    // Dynamic prize pool with tiered scaling
+    // Dynamic prize pool: 1M PONY per user (capped at 1000 users)
     let groupMembers = 50; // Default fallback
     try {
       if (bot && process.env.MAIN_CHANNEL_ID) {
         const memberCount = await bot.getChatMemberCount(process.env.MAIN_CHANNEL_ID);
-        groupMembers = memberCount;
-        console.log(`📊 Current group members: ${groupMembers}`);
+        groupMembers = Math.min(memberCount, 1000); // Cap at 1000 users
+        console.log(`📊 Current group members: ${memberCount} (capped at ${groupMembers} for prize pool)`);
       }
     } catch (error) {
       console.error('Error getting member count:', error);
     }
-    
-    // Fixed prize pool of 500,000 $PONY per race
-    const prizePool = 500000;
-    console.log(`💰 Fixed prize pool set to ${prizePool} $PONY (${groupMembers} members in group)`);
+
+    // Prize pool = 1M PONY per user (up to 1000 users)
+    const prizePool = groupMembers * 1000000;
+    console.log(`💰 Dynamic prize pool: ${prizePool.toLocaleString()} $PONY (${groupMembers} users × 1M)`);
 
     const race = new Race({
       raceId,
