@@ -34,7 +34,7 @@ class SchedulerHandler {
     });
     this.scheduledJobs.set('races', raceJob);
 
-    // 5-minute warnings before races
+    // 1-minute warnings before races
     const warningJob = cron.schedule(TimeUtils.getWarningCronExpression(), async () => {
       if (!this.isShuttingDown) {
         await this.sendRaceWarning();
@@ -72,60 +72,43 @@ class SchedulerHandler {
     
     console.log('✅ Enhanced scheduler started:');
     console.log('  🏇 Races: Every 30 minutes at :00 and :30 (0,30 * * * *)');
-    console.log('  ⚠️  5-min warnings: Every 30 minutes at :25 and :55 (25,55 * * * *)');
+    console.log('  ⚠️  1-min warnings: Every 30 minutes at :29 and :59 (29,59 * * * *)');
     console.log('  📢 Reminders: Every hour at :30 (30 * * * *)');
     console.log('  🧹 Maintenance: Every 30 minutes (*/30 * * * *)');
   }
 
   /**
-   * Run a scheduled race with enhanced error handling and server downtime recovery
+   * Run a scheduled race - NEW FLOW
+   * At :00 and :30 - Finish previous race, immediately create new one
    */
   async runScheduledRace() {
     try {
       const now = TimeUtils.getCurrentUTC();
-      console.log(`🚀 Running scheduled race at ${now.toISOString()}`);
-      
-      // Enhanced validation with tolerance for server delays
-      if (!TimeUtils.isValidRaceTimeWithTolerance(now, 120000)) { // 2 minute tolerance
-        console.warn(`⚠️ Race triggered at unusual time: ${now.toISOString()}`);
-        // Still run the race, but log the discrepancy
-      }
+      console.log(`🚀 Race time at ${now.toISOString()}`);
 
-      // Check if there's already an active race (recovery scenario)
+      // Step 1: Check if there's an existing race with bets
       const existingRace = await RaceService.getCurrentRace();
-      let race;
-      
-      if (existingRace) {
-        console.log(`🔄 Found existing race ${existingRace.raceId}, resuming operations`);
-        race = existingRace;
-      } else {
-        race = await RaceService.createRace(this.bot);
-        console.log(`✅ Created race: ${race.raceId} with ${race.prizePool} $PONY`);
-        await this.announceNewRace(race);
-      }
-      
-      // Schedule race completion with enhanced timeout handling
-      const raceTimeout = TimeUtils.getSafeTimeout(15 * 60 * 1000); // 15 minutes max
-      const raceTimer = setTimeout(async () => {
-        if (!this.isShuttingDown) {
-          console.log(`🏁 Running scheduled race completion: ${race.raceId}`);
-          await this.runLiveRace(race.raceId);
-        }
-      }, raceTimeout);
 
-      // Store timer reference for cleanup
-      this.activeRaceTimer = raceTimer;
-      
+      if (existingRace && existingRace.participants.length > 0) {
+        console.log(`🏁 Running race ${existingRace.raceId} with ${existingRace.participants.length} participants`);
+
+        // Run the race immediately (instant with animation)
+        await this.runLiveRace(existingRace.raceId);
+      } else if (existingRace) {
+        console.log(`⏭️  No participants in race ${existingRace.raceId}, finishing it`);
+        await RaceService.finishRace(existingRace.raceId);
+      }
+
+      // Step 2: Create NEW race immediately for betting
+      const newRace = await RaceService.createRace(this.bot);
+      console.log(`✅ Created new race: ${newRace.raceId} with ${newRace.prizePool.toLocaleString()} $PONY prize pool`);
+
+      // Announce new race for betting
+      await this.announceNewRace(newRace);
+
     } catch (error) {
       console.error('❌ Scheduled race error:', error);
-      
-      // Enhanced error recovery
-      if (error.message.includes('E11000') || error.message.includes('duplicate')) {
-        console.log('🔄 Duplicate race detected, likely due to server restart. Attempting recovery...');
-        await this.handleDuplicateRaceScenario();
-      } else {
-        await this.notifyError('Scheduled race failed', error);
-      }
+      await this.notifyError('Scheduled race failed', error);
     }
   }
 
@@ -176,23 +159,23 @@ class SchedulerHandler {
       const raceInfo = TimeUtils.getNextRaceInfo();
 
       const message = `
-⚠️ **5 MINUTE WARNING!** ⚠️
+⚠️ **1 MINUTE WARNING - BETTING CLOSES NOW!** ⚠️
 
 🏇 Next race starts at **${raceInfo.timeString} ${raceInfo.period} UTC**
-⏰ **5 MINUTES** to register and enter!
+🔒 **BETTING WINDOW CLOSING IN 1 MINUTE!**
 
-🚀 **QUICK START:**
-1. \`/register\` - Complete registration
-2. Pick your horse when race starts!
+⏰ **Last chance to:**
+1. Pick your horse with \`/horse NUMBER\`
+2. Tweet your pick
+3. \`/verify TWEET_URL\` to enter!
 
 💰 **Earn 100M $PONY per race!**
-🎁 **Plus 1B $PONY signup bonus!**
 
-**DON'T MISS OUT!** 🏆
+**HURRY - BETTING CLOSES AT ${raceInfo.timeString}!** 🏆
 `;
 
       await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
-      console.log(`⚠️ Sent 5-minute race warning for ${raceInfo.timeString}`);
+      console.log(`⚠️ Sent 1-minute race warning for ${raceInfo.timeString}`);
 
     } catch (error) {
       console.error('❌ Race warning error:', error);
@@ -356,22 +339,22 @@ class SchedulerHandler {
       });
 
       const message = `
-🚨 **RACE STARTING NOW!** 🚨
-📺 **LIVE FROM PIXEL PONIES RACETRACK**
+🎯 **BETTING NOW OPEN!** 🎯
+📺 **PIXEL PONIES - NEXT RACE**
 
 🏁 Race ID: ${race.raceId}
 
-🐎 **TODAY'S FIELD:**
+🐎 **CHOOSE YOUR CHAMPION:**
 ${horsesList}
 
 💰 **Prize Pool:** ${race.prizePool.toLocaleString()} $PONY
-⏰ **15 MINUTES** to enter!
+⏰ **Betting open until 1 minute before race!**
 
 🎯 Use /horse NUMBER to pick your champion!
 🐦 Tweet your pick and /verify your tweet!
 💎 **Earn 100M $PONY per race!**
 
-**RACES EVERY 30 MINUTES!** 🏁
+**🏇 RACES EVERY 30 MINUTES AT :00 AND :30!**
 `;
 
       await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });

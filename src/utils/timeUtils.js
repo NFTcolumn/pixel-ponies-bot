@@ -94,11 +94,11 @@ class TimeUtils {
   }
 
   /**
-   * Get cron expression for race warnings (5 minutes before races at :25 and :55)
-   * @returns {string} Cron expression for 5-minute warnings
+   * Get cron expression for race warnings (1 minute before races at :29 and :59)
+   * @returns {string} Cron expression for 1-minute warnings
    */
   static getWarningCronExpression() {
-    return '25,55 * * * *';
+    return '29,59 * * * *';
   }
 
   /**
