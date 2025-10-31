@@ -78,17 +78,27 @@ The most exciting crypto horse racing with MASSIVE $PONY rewards!
   }
 
   /**
-   * Handle /register command - NEW 5-STEP FLOW
+   * Handle /register command - NEW 5-STEP FLOW (PRIVATE DM ONLY)
    */
   async handleRegister(msg) {
     const userId = msg.from.id.toString();
     const chatId = msg.chat.id;
 
     try {
+      // Check if this is a private chat (DM)
+      if (msg.chat.type !== 'private') {
+        // Send DM instruction in group
+        await this.bot.sendMessage(chatId,
+          `🔒 **Registration is Private!**\n\nFor your security, please DM me to register.\n\nClick here to start: @${process.env.BOT_USERNAME || 'PixelPonyBot'}`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
       // Check if user already registered
       let user = await User.findOne({ telegramId: userId });
 
-      if (user && user.baseAddress && user.twitterHandle && user.twitterFollowVerified) {
+      if (user && user.baseAddress && user.twitterFollowVerified) {
         return this.bot.sendMessage(chatId,
           `✅ **Already Registered!**\n\n🎉 You're all set to race!\n\n💰 Use /balance to see your stats\n🏇 Use /race to join the current race`
         );
@@ -262,18 +272,32 @@ Example:
     // Skip if it's a command
     if (text && text.startsWith('/')) return false;
 
+    // Only handle messages in private chats
+    if (msg.chat.type !== 'private') return false;
+
     try {
       const user = await User.findOne({ telegramId: userId });
 
+      console.log(`📝 Message received from user ${userId}:`, {
+        hasUser: !!user,
+        twitterVerified: user?.twitterFollowVerified,
+        hasWallet: !!user?.baseAddress,
+        messageText: text?.substring(0, 20)
+      });
+
       // Check if user is in registration and waiting for wallet
       if (user && user.twitterFollowVerified && !user.baseAddress && text) {
+        console.log(`💼 Processing wallet submission for user ${userId}: ${text.trim()}`);
+
         // Validate as ethereum address
         if (BaseService.validateAddress(text.trim())) {
           const walletAddress = text.trim();
+          console.log(`✅ Valid wallet address for ${userId}: ${walletAddress}`);
 
           // Save wallet
           user.baseAddress = walletAddress;
           await user.save();
+          console.log(`💾 Wallet saved to database for user ${userId}`);
 
           // Send completion message
           const message = `
@@ -296,9 +320,11 @@ Example:
           await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
           // Process signup bonus
+          console.log(`🎁 Processing signup bonus for ${userId}...`);
           await PayoutService.processParticipantBonus(user, chatId, this.bot);
 
           // Process referral reward if applicable
+          console.log(`👥 Processing referral reward for ${userId}...`);
           await ReferralService.processReferralReward(user, chatId, this.bot);
 
           // Send final message
@@ -318,13 +344,17 @@ Use these commands:
 
           return true; // Message handled
         } else {
+          console.log(`❌ Invalid wallet address from ${userId}: ${text.trim()}`);
           await this.bot.sendMessage(chatId, '❌ Invalid wallet address. Please send a valid Base/Ethereum address (starts with 0x)');
           return true;
         }
+      } else if (text && !text.startsWith('/')) {
+        console.log(`⚠️ Message ignored for ${userId}: user not ready for wallet submission`);
       }
 
     } catch (error) {
       console.error('Message handling error:', error);
+      console.error(error.stack);
     }
 
     return false; // Message not handled

@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "lint": "eslint src/",
-    "test": "jest"
+    "test": "jest",
+    "clear-db": "node scripts/clearDatabase.js",
+    "test-transfer": "node scripts/testTransfer.js"
   },
   "keywords": ["telegram", "bot", "base", "ethereum", "erc20", "racing", "gambling"],
   "author": "Pixel Ponies Team",
