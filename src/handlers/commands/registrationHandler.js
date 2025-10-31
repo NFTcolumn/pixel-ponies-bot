@@ -87,10 +87,23 @@ The most exciting crypto horse racing with MASSIVE $PONY rewards!
     try {
       // Check if this is a private chat (DM)
       if (msg.chat.type !== 'private') {
-        // Send DM instruction in group
+        // Get bot info to create proper link
+        const botInfo = await this.bot.getMe();
+        const botUsername = botInfo.username;
+
+        // Send DM instruction in group with clickable link
+        const keyboard = {
+          inline_keyboard: [
+            [{
+              text: '🔐 Register in Private DM',
+              url: `https://t.me/${botUsername}?start=register`
+            }]
+          ]
+        };
+
         await this.bot.sendMessage(chatId,
-          `🔒 **Registration is Private!**\n\nFor your security, please DM me to register.\n\nClick here to start: @${process.env.BOT_USERNAME || 'PixelPonyBot'}`,
-          { parse_mode: 'Markdown' }
+          `🔒 **Registration is Private!**\n\nFor your security, please click the button below to DM me and complete registration privately.`,
+          { parse_mode: 'Markdown', reply_markup: keyboard }
         );
         return;
       }
@@ -144,7 +157,9 @@ Click the button below to follow @pxponies on Twitter!
       });
 
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
+      console.error('   Error details:', error.message);
+      console.error('   Stack trace:', error.stack);
       await this.bot.sendMessage(chatId, '❌ Registration error. Please try /register again.');
     }
   }
