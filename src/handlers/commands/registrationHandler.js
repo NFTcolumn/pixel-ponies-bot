@@ -39,35 +39,31 @@ class RegistrationHandler {
       const message = `
 🏇 **Welcome to Pixel Ponies on Base!**
 
-The most exciting crypto horse racing with MASSIVE $PONY rewards!
+The most exciting crypto horse racing with real $PONY rewards!
 
-🎁 **HUGE REWARDS:**
-💎 **${formatPonyAmount(REWARDS.SIGNUP)} $PONY** signup bonus!
-🏇 **${formatPonyAmount(REWARDS.PER_RACE)} $PONY** per race!
+🎮 **Racing is now LIVE at pxpony.com!**
+
+🎁 **Referral Rewards:**
 👥 **${formatPonyAmount(REWARDS.REFERRAL)} $PONY** per referral!
 
-**How to Register & Play:**
-✅ Step 1: Join our Telegram (you're here!)
-✅ Step 2: Follow @pxponies on Twitter
-✅ Step 3: Share registration tweet
-✅ Step 4: Add your Base wallet
-✅ Step 5: Race and earn!
+**How to Get Started:**
+1️⃣ Join our Telegram (you're here!)
+2️⃣ Register your Base wallet
+3️⃣ Get $PONY tokens
+4️⃣ Visit **pxpony.com** to race!
 
-**Start Now:**
-/register - Begin your 5-step registration
+**Commands:**
+/register - Register your wallet
 /howtoplay - Detailed guide
 /referral - Get your invite link
-
-**Race Commands:**
-/race - View current race
 /balance - Check your stats
 
 **Links:**
-🌐 Website: ${LINKS.WEBSITE}
+🌐 Racing: **pxpony.com**
 🔗 Token: ${LINKS.TOKEN_CA}
 ⛓️ Blockchain: Base ($BASE)
 
-💰 **Instant payouts to your wallet!**
+🏆 **Race with real $PONY at pxpony.com!**
 `;
 
       await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });

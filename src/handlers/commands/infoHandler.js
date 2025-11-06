@@ -179,52 +179,42 @@ Race, win, earn! 🏆`;
    */
   async handleHowToPlay(msg) {
     const message = `
-📚 **HOW TO PLAY PIXEL PONIES - COMPLETE GUIDE**
+🏇 **WELCOME TO PIXEL PONIES!**
 
-🎯 **STEP 1: REGISTER YOUR WALLET**
-• Use: \`/register YOUR_SOLANA_WALLET\`
-• Example: \`/register 7xKXtWuQmLYqhKSxP2abc123...\`
-• This saves your wallet for $PONY payouts
+🎮 **Racing is now LIVE at pxpony.com!**
 
-🐦 **STEP 2: FOLLOW & CONNECT TWITTER**
-• After registering, you'll get buttons to:
-  1. Follow @pxponies on Twitter/X
-  2. Enter your Twitter handle
-• This is **REQUIRED** for all rewards!
+📝 **HOW TO GET STARTED:**
 
-🏁 **STEP 3: JOIN A RACE**
-• Use: \`/race\` to see current race
-• Pick your horse: \`/horse 1\` (numbers 1-12)
-• You'll get a pre-written tweet to post
+**STEP 1: REGISTER YOUR WALLET**
+• Use: \`/register YOUR_BASE_WALLET\`
+• Example: \`/register 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb\`
+• Your Base wallet will receive $PONY rewards
 
-🐦 **STEP 4: TWEET & VERIFY**
-• Post the generated tweet about your horse
-• Copy your tweet URL 
-• Use: \`/verify YOUR_TWEET_URL\`
-• Example: \`/verify https://x.com/yourname/status/123...\`
+**STEP 2: GET $PONY TOKENS**
+• Make sure you have $PONY tokens in your wallet
+• You'll need these to race on pxpony.com
 
-💰 **STEP 5: GET PAID!**
-• **500 $PONY** instantly for participating
-• **100 $PONY** welcome bonus (first time)
-• **Share of jackpot** if your horse wins!
+**STEP 3: VISIT PXPONY.COM TO RACE!**
+• Go to **pxpony.com**
+• Connect your wallet
+• Race against other players with real $PONY!
 
-🎁 **REWARDS SUMMARY:**
-• 500 $PONY per race (while supplies last)
-• 100 $PONY welcome bonus
-• Jackpot winnings (tiered scaling: 1000/500/250/125 PONY per 50 members, split 85%/12.5%/2.5%)
-• Must follow @pxponies for all rewards
-
-**Referral Program:**
-🎁 Earn 100 $PONY for each friend you invite!
-🔗 Use \`/referral\` to get your unique invite link
-💰 Both you and your friend get rewards!
+🎁 **Referral Program:**
+• Earn 100 $PONY for each friend you invite!
+• Use \`/referral\` to get your unique invite link
+• Both you and your friend get rewards!
 
 ⚡ **QUICK START:**
-1. \`/register wallet\` → Follow @pxponies → Enter Twitter
-2. \`/race\` → \`/horse NUMBER\` → Tweet → \`/verify URL\`
-3. Earn $PONY! 🚀
+1. \`/register YOUR_BASE_WALLET\`
+2. Get $PONY tokens
+3. Visit **pxpony.com** to race!
 
-**Need help?** Use \`/balance\` to check your stats anytime!
+💰 **Commands:**
+• \`/balance\` - Check your stats
+• \`/referral\` - Get your invite link
+• \`/help\` - Show this message
+
+🏆 **Race with real $PONY at pxpony.com!**
 `;
 
     await this.bot.sendMessage(msg.chat.id, message, { parse_mode: 'Markdown' });

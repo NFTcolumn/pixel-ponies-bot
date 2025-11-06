@@ -32,11 +32,13 @@ class BotHandler {
     this.infoHandler = new InfoHandler(bot);
     this.adminHandler = new AdminHandler(bot);
     this.schedulerHandler = new SchedulerHandler(bot);
-    
-    // Setup commands and start scheduler
+
+    // Setup commands
     this.setupCommands();
-    this.schedulerHandler.startScheduler();
-    
+
+    // Scheduler disabled - users directed to pxpony.com for racing
+    // this.schedulerHandler.startScheduler();
+
     // Perform recovery operations
     this.performStartupRecovery();
   }
@@ -52,16 +54,14 @@ class BotHandler {
     this.bot.onText(/\/register(?:\s+(\S+)(?:\s+@?(\w+))?)?/, (msg, match) => 
       this.registrationHandler.handleRegister(msg, match ? match[1] : null, match ? match[2] : null));
     
-    this.bot.onText(/\/verify_follow/, (msg) => 
+    this.bot.onText(/\/verify_follow/, (msg) =>
       this.registrationHandler.handleVerifyFollow(msg));
-    
-    // Race commands
-    this.bot.onText(/\/race/, (msg) => this.raceHandler.handleRace(msg));
-    this.bot.onText(/\/horse\s+(\d+)/, (msg, match) => 
-      this.raceHandler.handleHorse(msg, parseInt(match[1])));
-    this.bot.onText(/\/verify\s+(https:\/\/(?:twitter\.com|x\.com)\/\S+)/, (msg, match) => 
-      this.raceHandler.handleVerify(msg, match[1]));
-    this.bot.onText(/\/racetime/, (msg) => this.raceHandler.handleRaceTime(msg));
+
+    // Race commands - Disabled (users directed to pxpony.com)
+    this.bot.onText(/\/race/, (msg) => this.handleRaceRedirect(msg));
+    this.bot.onText(/\/horse\s+(\d+)/, (msg, match) => this.handleRaceRedirect(msg));
+    this.bot.onText(/\/verify\s+(https:\/\/(?:twitter\.com|x\.com)\/\S+)/, (msg, match) => this.handleRaceRedirect(msg));
+    this.bot.onText(/\/racetime/, (msg) => this.handleRaceRedirect(msg));
     
     // Info commands
     this.bot.onText(/\/balance/, (msg) => this.infoHandler.handleBalance(msg));
@@ -108,6 +108,30 @@ class BotHandler {
 
 
 
+
+  /**
+   * Handle race command redirects to pxpony.com
+   */
+  async handleRaceRedirect(msg) {
+    const chatId = msg.chat.id;
+
+    const message = `🏇 **Pixel Ponies Racing is Now Live!**
+
+🎮 Race with real $PONY at **pxpony.com**
+
+To get started:
+1️⃣ Make sure you're registered: /register
+2️⃣ Get your $PONY tokens
+3️⃣ Visit **pxpony.com** to race!
+
+🏆 Race against other players and win real $PONY prizes!`;
+
+    try {
+      await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error sending race redirect:', error);
+    }
+  }
 
   /**
    * Handle callback queries (button presses)

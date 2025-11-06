@@ -31,7 +31,10 @@ const raceSchema = new mongoose.Schema({
     payout: { type: Number, default: 0 }
   }],
   prizePool: { type: Number, default: 700 },
-  totalPayout: { type: Number, default: 0 }
+  totalPayout: { type: Number, default: 0 },
+  // Message tracking for archiving
+  temporaryMessageIds: [{ type: Number }], // Messages to delete when race finishes (betting announcements, commentary)
+  permanentMessageIds: [{ type: Number }]  // Messages to keep (results, payouts)
 });
 
 export default mongoose.model('Race', raceSchema);

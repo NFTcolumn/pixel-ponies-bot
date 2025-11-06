@@ -146,7 +146,7 @@ class SchedulerHandler {
   }
 
   /**
-   * Send 5-minute warning before races
+   * Send 1-minute warning before races
    */
   async sendRaceWarning() {
     const channelId = process.env.MAIN_CHANNEL_ID;
@@ -174,8 +174,19 @@ class SchedulerHandler {
 **HURRY - BETTING CLOSES AT ${raceInfo.timeString}!** 🏆
 `;
 
-      await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
+      const messageId = await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
       console.log(`⚠️ Sent 1-minute race warning for ${raceInfo.timeString}`);
+
+      // Store as temporary message
+      if (messageId) {
+        const currentRace = await RaceService.getCurrentRace();
+        if (currentRace) {
+          currentRace.temporaryMessageIds = currentRace.temporaryMessageIds || [];
+          currentRace.temporaryMessageIds.push(messageId);
+          await currentRace.save();
+          console.log(`📌 Tracked warning message ${messageId} for race ${currentRace.raceId}`);
+        }
+      }
 
     } catch (error) {
       console.error('❌ Race warning error:', error);
@@ -277,47 +288,81 @@ class SchedulerHandler {
    * @param {string} channelId - Channel ID
    * @param {string} message - Message text
    * @param {object} options - Message options
+   * @returns {Promise<number|null>} Message ID if successful, null otherwise
    */
   async sendMessageSafely(channelId, message, options = {}) {
     const messageKey = `${channelId}_${Date.now()}`;
     const minInterval = 1000; // 1 second minimum between messages
-    
+
     try {
       // Rate limiting
       const lastTime = this.lastMessageTime.get(channelId) || 0;
       const timeSinceLastMessage = Date.now() - lastTime;
-      
+
       if (timeSinceLastMessage < minInterval) {
         const delayMs = minInterval - timeSinceLastMessage;
         console.log(`⏰ Rate limiting: waiting ${delayMs}ms before sending message`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
-      
+
       this.lastMessageTime.set(channelId, Date.now());
-      
-      await this.bot.sendMessage(channelId, message, options);
-      console.log(`✅ Message sent successfully to ${channelId}`);
-      
+
+      const sentMessage = await this.bot.sendMessage(channelId, message, options);
+      console.log(`✅ Message sent successfully to ${channelId} (ID: ${sentMessage.message_id})`);
+      return sentMessage.message_id;
+
     } catch (error) {
       if (error.response?.body?.error_code === 429) {
         // Rate limiting - wait and retry
         const retryAfter = error.response.body.parameters?.retry_after || 5;
         console.warn(`🚫 Rate limited, retrying after ${retryAfter} seconds`);
-        
+
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-        
+
         try {
-          await this.bot.sendMessage(channelId, message, options);
-          console.log(`✅ Message sent after retry`);
+          const sentMessage = await this.bot.sendMessage(channelId, message, options);
+          console.log(`✅ Message sent after retry (ID: ${sentMessage.message_id})`);
+          return sentMessage.message_id;
         } catch (retryError) {
           console.error(`❌ Failed to send message after retry:`, retryError.message);
+          return null;
         }
       } else if (error.response?.body?.error_code === 400 && error.message.includes('chat not found')) {
         console.error(`❌ Chat not found: ${channelId}. Please check MAIN_CHANNEL_ID environment variable.`);
+        return null;
       } else {
         console.error(`❌ Error sending message:`, error.message);
+        return null;
       }
     }
+  }
+
+  /**
+   * Delete temporary race messages
+   * @param {Array<number>} messageIds - Array of message IDs to delete
+   * @param {string} channelId - Channel ID
+   */
+  async deleteRaceMessages(messageIds, channelId) {
+    if (!messageIds || messageIds.length === 0) {
+      return;
+    }
+
+    console.log(`🗑️ Deleting ${messageIds.length} temporary race messages...`);
+
+    for (const messageId of messageIds) {
+      try {
+        await this.bot.deleteMessage(channelId, messageId);
+        console.log(`✅ Deleted message ${messageId}`);
+      } catch (error) {
+        // Message might already be deleted or not exist
+        console.warn(`⚠️ Could not delete message ${messageId}:`, error.message);
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    console.log(`✅ Finished deleting temporary messages`);
   }
 
   /**
@@ -357,7 +402,15 @@ ${horsesList}
 **🏇 RACES EVERY 10 MINUTES!**
 `;
 
-      await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
+      const messageId = await this.sendMessageSafely(channelId, message, { parse_mode: 'Markdown' });
+
+      // Store as temporary message (will be deleted when race finishes)
+      if (messageId) {
+        race.temporaryMessageIds = race.temporaryMessageIds || [];
+        race.temporaryMessageIds.push(messageId);
+        await race.save();
+        console.log(`📌 Tracked race announcement message ${messageId} for race ${race.raceId}`);
+      }
     } catch (error) {
       console.error('❌ Error announcing new race:', error);
     }
@@ -372,9 +425,20 @@ ${horsesList}
     if (!channelId) return;
 
     try {
-      await this.bot.sendMessage(channelId, 
+      // Get the race object to track messages
+      const race = await Race.findOne({ raceId });
+      if (!race) return;
+
+      race.temporaryMessageIds = race.temporaryMessageIds || [];
+
+      // Send "BETTING IS NOW CLOSED" message
+      const closedMsg = await this.bot.sendMessage(channelId,
         `🚪 **BETTING IS NOW CLOSED!**\n\n📺 **AND THEY'RE OFF!** The horses are charging out of the gate! 🐎💨`
       );
+      if (closedMsg?.message_id) {
+        race.temporaryMessageIds.push(closedMsg.message_id);
+        console.log(`📌 Tracked betting closed message ${closedMsg.message_id}`);
+      }
 
       const finishedRace = await RaceService.runRace(raceId);
       if (!finishedRace) return;
@@ -391,13 +455,21 @@ ${horsesList}
       for (let i = 0; i < commentary.length; i++) {
         await new Promise(resolve => setTimeout(resolve, i * 5000));
         if (this.isShuttingDown) break;
-        
+
         try {
-          await this.bot.sendMessage(channelId, commentary[i]);
+          const commentaryMsg = await this.bot.sendMessage(channelId, commentary[i]);
+          if (commentaryMsg?.message_id) {
+            race.temporaryMessageIds.push(commentaryMsg.message_id);
+            console.log(`📌 Tracked commentary message ${commentaryMsg.message_id}`);
+          }
         } catch (msgError) {
           console.error(`Error sending commentary ${i}:`, msgError);
         }
       }
+
+      // Save all tracked temporary messages
+      await race.save();
+      console.log(`📌 Total temporary messages tracked: ${race.temporaryMessageIds.length}`);
 
       // Wait a bit more then announce results
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -423,20 +495,29 @@ ${horsesList}
       const second = race.horses.find(h => h.position === 2);
       const third = race.horses.find(h => h.position === 3);
 
+      // Initialize permanent message IDs array
+      race.permanentMessageIds = race.permanentMessageIds || [];
+
       // Only show official results if there were participants
       if (race.participants.length > 0) {
         const recoveryNote = isRecovery ? ' (System Recovery)' : '';
-        await this.bot.sendMessage(channelId, `
+        const resultsMsg = await this.bot.sendMessage(channelId, `
 🎺 **OFFICIAL RACE RESULTS** 🎺${recoveryNote}
 
 🥇 **WINNER:** ${winner.emoji} ${winner.name} (${winner.finishTime.toFixed(2)}s)
 🥈 **PLACE:** ${second.emoji} ${second.name} (${second.finishTime.toFixed(2)}s)
 🥉 **SHOW:** ${third.emoji} ${third.name} (${third.finishTime.toFixed(2)}s)
 `, { parse_mode: 'Markdown' });
+
+        if (resultsMsg?.message_id) {
+          race.permanentMessageIds.push(resultsMsg.message_id);
+          await race.save();
+          console.log(`📌 Tracked results message ${resultsMsg.message_id} as permanent`);
+        }
       }
 
-      // Process payouts
-      await PayoutService.processRacePayouts(race, channelId, this.bot);
+      // Process payouts (passes scheduler handler for message deletion)
+      await PayoutService.processRacePayouts(race, channelId, this.bot, this);
     } catch (error) {
       console.error('❌ Error announcing results:', error);
     }
