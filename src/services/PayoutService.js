@@ -135,7 +135,7 @@ ${race.participants.length} players participated but nobody picked the winning h
   }
 
   async processParticipantBonus(user, chatId, bot) {
-    const airdropAmount = 1000000000; // 1B $PONY signup bonus
+    const airdropAmount = 10000000000; // 10B $PONY signup bonus
     
     try {
       await bot.sendMessage(chatId, 

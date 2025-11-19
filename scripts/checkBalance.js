@@ -63,7 +63,7 @@ async function checkBalance() {
     console.log(`🔢 Raw Balance: ${tokenBalance.toString()}`);
 
     // Calculate how many rewards can be paid
-    const signupBonus = 1000000000; // 1B
+    const signupBonus = 10000000000; // 10B
     const raceReward = 100000000; // 100M
     const referralReward = 250000000; // 250M
 
@@ -72,7 +72,7 @@ async function checkBalance() {
     const racesAvailable = Math.floor(totalBalance / raceReward);
 
     console.log(`\n📊 Rewards Available:`);
-    console.log(`   🎁 Signup bonuses (1B each): ${signupsAvailable.toLocaleString()}`);
+    console.log(`   🎁 Signup bonuses (10B each): ${signupsAvailable.toLocaleString()}`);
     console.log(`   🏇 Race rewards (100M each): ${racesAvailable.toLocaleString()}`);
     console.log(`   👥 Referral rewards (250M each): ${Math.floor(totalBalance / referralReward).toLocaleString()}`);
 

@@ -205,10 +205,10 @@ class SchedulerHandler {
 
     try {
       const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Races every 10 minutes! Join now with `/register` and earn 1B $PONY signup bonus! 🪙',
-        '🎁 **MASSIVE REWARDS!** 1B signup + 100M per race + 250M per referral! Register now and start earning! 🏆',
-        '🚀 **Race Every 10 Minutes!** Non-stop action on Base blockchain! Get started with `/register` 💰',
-        '🏁 **Pixel Ponies Racing Club!** 144 races per day! Free to join, real crypto rewards! Next race soon! 🎯'
+        '🏇 **Pixel Ponies is LIVE!** Race now at pxpony.com! Register with `/register` and earn 10B $PONY signup bonus! 🪙',
+        '🎁 **MASSIVE REWARDS!** 10B signup + 100M per race + 250M per referral! Register now at pxpony.com and start earning! 🏆',
+        '🚀 **Race at pxpony.com!** Non-stop action on Base blockchain! Get started with `/register` 💰',
+        '🏁 **Pixel Ponies Racing Club!** Free to join, real crypto rewards! Race now at pxpony.com! 🎯'
       ];
 
       const randomMessage = messages[Math.floor(Math.random() * messages.length)];
