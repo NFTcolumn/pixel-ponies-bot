@@ -117,7 +117,8 @@ The most exciting crypto horse racing with real $PONY rewards!
       const message = `
 🏇 **5-STEP REGISTRATION**
 
-Get **${formatPonyAmount(REWARDS.SIGNUP)} $PONY** for completing registration!
+⚠️ **Note:** Signup bonuses are currently unavailable until we reach 200 races. You can buy $PONY at:
+https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab297799335E7b0f60d9e05439Df156cf694Ba7&chain=base
 
 **Your Progress:**
 ✅ Step 1: Join Telegram (Complete!)
@@ -325,14 +326,19 @@ Example:
 
 💎 Wallet: \`${walletAddress.slice(0,8)}...${walletAddress.slice(-6)}\`
 
-⏳ **Processing your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY signup bonus...**
+⚠️ **$PONY Signup Bonus Temporarily Unavailable**
+
+We're currently out of $PONY for signup bonuses until we reach our 200 races milestone!
+
+🛒 **You can buy $PONY here:**
+https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab297799335E7b0f60d9e05439Df156cf694Ba7&chain=base
 `;
 
           await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
-          // Process signup bonus
-          console.log(`🎁 Processing signup bonus for ${userId}...`);
-          await PayoutService.processParticipantBonus(user, chatId, this.bot);
+          // Skip signup bonus processing until 200 races milestone
+          console.log(`⚠️ Skipping signup bonus for ${userId} - out of $PONY until 200 races`);
+          // await PayoutService.processParticipantBonus(user, chatId, this.bot);
 
           // Process referral reward if applicable
           console.log(`👥 Processing referral reward for ${userId}...`);
