@@ -48,8 +48,8 @@ class BotHandler {
    */
   setupCommands() {
     // Registration commands
-    this.bot.onText(/\/start(?:\s+([a-zA-Z0-9]+))?/, (msg, match) => 
-      this.registrationHandler.handleStart(msg, match ? match[1] : null));
+    this.bot.onText(/\/start/, (msg) =>
+      this.registrationHandler.handleStart(msg));
     
     this.bot.onText(/\/register(?:\s+(\S+)(?:\s+@?(\w+))?)?/, (msg, match) => 
       this.registrationHandler.handleRegister(msg, match ? match[1] : null, match ? match[2] : null));
@@ -66,8 +66,8 @@ class BotHandler {
     // Info commands
     this.bot.onText(/\/balance/, (msg) => this.infoHandler.handleBalance(msg));
     this.bot.onText(/\/airdrop/, (msg) => this.infoHandler.handleAirdropInfo(msg));
-    this.bot.onText(/\/referral/, (msg) => this.infoHandler.handleReferral(msg));
-    this.bot.onText(/\/invite/, (msg) => this.infoHandler.handleInvite(msg));
+    this.bot.onText(/\/referral/, (msg) => this.handleReferralRedirect(msg));
+    this.bot.onText(/\/invite/, (msg) => this.handleReferralRedirect(msg));
     this.bot.onText(/\/howtoplay|\/help/, (msg) => this.infoHandler.handleHowToPlay(msg));
     
     // Admin commands
@@ -130,6 +130,30 @@ To get started:
       await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
     } catch (error) {
       console.error('Error sending race redirect:', error);
+    }
+  }
+
+  /**
+   * Handle referral command redirects to pxpony.com/referrals
+   */
+  async handleReferralRedirect(msg) {
+    const chatId = msg.chat.id;
+
+    const message = `🎁 **Referral System is Now Live!**
+
+👥 Share your referral link and earn rewards at **pxpony.com/referrals**
+
+To get started:
+1️⃣ Make sure you're registered: /register
+2️⃣ Visit **pxpony.com/referrals** to get your unique link
+3️⃣ Share with friends and earn!
+
+💰 Earn rewards when your friends join and race!`;
+
+    try {
+      await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error sending referral redirect:', error);
     }
   }
 

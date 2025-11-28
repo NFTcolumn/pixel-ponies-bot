@@ -2,7 +2,7 @@
  * Tweet Templates for Pixel Ponies
  */
 
-export const REGISTRATION_TWEET_TEMPLATE = `I just registered to race on #PixelPonies and got 10B $PONY. Join @pxponies telegram and register to get yours NOW!
+export const REGISTRATION_TWEET_TEMPLATE = `I just registered to race on #PixelPonies and got 100M $PONY. Join @pxponies telegram and register to get yours NOW!
 
 TG: https://t.me/pixelponies
 
@@ -40,7 +40,7 @@ export function formatPonyAmount(amount) {
 
 // Reward amounts
 export const REWARDS = {
-  SIGNUP: 10000000000,   // 10B $PONY
+  SIGNUP: 100000000,     // 100M $PONY
   PER_RACE: 100000000,   // 100M $PONY
   REFERRAL: 250000000    // 250M $PONY
 };

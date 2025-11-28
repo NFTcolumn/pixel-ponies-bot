@@ -205,9 +205,9 @@ class SchedulerHandler {
 
     try {
       const messages = [
-        '🏇 **Pixel Ponies is LIVE!** Race now at pxpony.com! Register with `/register` and earn 10B $PONY signup bonus! 🪙',
-        '🎁 **MASSIVE REWARDS!** 10B signup + 100M per race + 250M per referral! Register now at pxpony.com and start earning! 🏆',
-        '🚀 **Race at pxpony.com!** Non-stop action on Base blockchain! Get started with `/register` 💰',
+        '🏇 **Pixel Ponies is LIVE!** Race now at pxpony.com! Register with `/register` and earn 100M $PONY signup bonus! 🪙',
+        '🎁 **MASSIVE REWARDS!** 100M signup + 100M per race! Register now and start earning! 🏆',
+        '🚀 **Race at pxpony.com!** Non-stop action on Base blockchain! Get started with `/register` and get 100M $PONY! 💰',
         '🏁 **Pixel Ponies Racing Club!** Free to join, real crypto rewards! Race now at pxpony.com! 🎯'
       ];
 

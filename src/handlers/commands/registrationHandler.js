@@ -1,6 +1,5 @@
 import User from '../../models/User.js';
 import BaseService from '../../services/BaseService.js';
-import ReferralService from '../../services/ReferralService.js';
 import PayoutService from '../../services/PayoutService.js';
 import { REGISTRATION_TWEET_TEMPLATE, REWARDS, LINKS, formatPonyAmount } from '../../utils/tweetTemplates.js';
 
@@ -14,28 +13,12 @@ class RegistrationHandler {
   }
 
   /**
-   * Handle /start command with optional referral code
+   * Handle /start command
    */
-  async handleStart(msg, referralCode = null) {
+  async handleStart(msg) {
     const userId = msg.from.id.toString();
 
     try {
-      // Handle referral if code provided
-      if (referralCode) {
-        const referralResult = await ReferralService.handleReferralLink(userId, referralCode);
-        if (referralResult) {
-          if (referralResult.shouldCreateUser) {
-            await this.bot.sendMessage(msg.chat.id,
-              `🎉 **Welcome via referral from @${referralResult.referrerName}!**\n\n🎁 Complete registration to get your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY bonus!`
-            );
-          } else {
-            await this.bot.sendMessage(msg.chat.id,
-              `🎉 **Referral linked to @${referralResult.referrerName}!**`
-            );
-          }
-        }
-      }
-
       const message = `
 🏇 **Welcome to Pixel Ponies on Base!**
 
@@ -43,23 +26,23 @@ The most exciting crypto horse racing with real $PONY rewards!
 
 🎮 **Racing is now LIVE at pxpony.com!**
 
-🎁 **Referral Rewards:**
-👥 **${formatPonyAmount(REWARDS.REFERRAL)} $PONY** per referral!
+🎁 **Signup Bonus:**
+💰 **${formatPonyAmount(REWARDS.SIGNUP)} $PONY** when you register!
 
 **How to Get Started:**
 1️⃣ Join our Telegram (you're here!)
-2️⃣ Register your Base wallet
-3️⃣ Get $PONY tokens
+2️⃣ Register your Base wallet with /register
+3️⃣ Get your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY bonus!
 4️⃣ Visit **pxpony.com** to race!
 
 **Commands:**
-/register - Register your wallet
+/register - Register your wallet and get ${formatPonyAmount(REWARDS.SIGNUP)} $PONY
 /howtoplay - Detailed guide
-/referral - Get your invite link
 /balance - Check your stats
 
 **Links:**
 🌐 Racing: **pxpony.com**
+🔗 Referrals: **pxpony.com/referrals**
 🔗 Token: ${LINKS.TOKEN_CA}
 ⛓️ Blockchain: Base ($BASE)
 
@@ -117,15 +100,14 @@ The most exciting crypto horse racing with real $PONY rewards!
       const message = `
 🏇 **5-STEP REGISTRATION**
 
-⚠️ **Note:** Signup bonuses are currently unavailable until we reach 200 races. You can buy $PONY at:
-https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab297799335E7b0f60d9e05439Df156cf694Ba7&chain=base
+🎁 **Get ${formatPonyAmount(REWARDS.SIGNUP)} $PONY just for signing up!**
 
 **Your Progress:**
 ✅ Step 1: Join Telegram (Complete!)
 ⬜ Step 2: Follow @pxponies on Twitter
 ⬜ Step 3: Share registration tweet
 ⬜ Step 4: Submit your Base wallet
-⬜ Step 5: Start racing!
+⬜ Step 5: Receive your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY!
 
 **Let's begin Step 2:**
 Click the button below to follow @pxponies on Twitter!
@@ -255,8 +237,7 @@ Example:
             username: query.from.username || 'User',
             firstName: query.from.first_name || 'User',
             lastName: query.from.last_name,
-            twitterFollowVerified: true, // Assumed verified
-            referralCode: ReferralService.generateReferralCode(userId)
+            twitterFollowVerified: true // Assumed verified
           });
           await user.save();
         } else {
@@ -320,29 +301,20 @@ Example:
 ✅ Step 2: Follow @pxponies
 ✅ Step 3: Share registration tweet
 ✅ Step 4: Submit Base wallet
-✅ Step 5: Start racing!
+✅ Step 5: Receive your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY!
 
 🎉 **Welcome to Pixel Ponies!**
 
 💎 Wallet: \`${walletAddress.slice(0,8)}...${walletAddress.slice(-6)}\`
 
-⚠️ **$PONY Signup Bonus Temporarily Unavailable**
-
-We're currently out of $PONY for signup bonuses until we reach our 200 races milestone!
-
-🛒 **You can buy $PONY here:**
-https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab297799335E7b0f60d9e05439Df156cf694Ba7&chain=base
+💰 **Processing your ${formatPonyAmount(REWARDS.SIGNUP)} $PONY signup bonus...**
 `;
 
           await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
-          // Skip signup bonus processing until 200 races milestone
-          console.log(`⚠️ Skipping signup bonus for ${userId} - out of $PONY until 200 races`);
-          // await PayoutService.processParticipantBonus(user, chatId, this.bot);
-
-          // Process referral reward if applicable
-          console.log(`👥 Processing referral reward for ${userId}...`);
-          await ReferralService.processReferralReward(user, chatId, this.bot);
+          // Process signup bonus
+          console.log(`💰 Processing signup bonus for ${userId}...`);
+          await PayoutService.processParticipantBonus(user, chatId, this.bot);
 
           // Send final message
           setTimeout(async () => {
@@ -352,10 +324,9 @@ https://app.uniswap.org/#/swap?inputCurrency=ETH&outputCurrency=0x6ab297799335E7
 Use these commands:
 /race - Join the current race
 /balance - Check your stats
-/referral - Get your invite link
 
 💰 Earn **${formatPonyAmount(REWARDS.PER_RACE)} $PONY** per race!
-👥 Earn **${formatPonyAmount(REWARDS.REFERRAL)} $PONY** per referral!
+🔗 **Refer friends at pxpony.com/referrals**
 `);
           }, 3000);
 
