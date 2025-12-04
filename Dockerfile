@@ -11,7 +11,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies (including native build for better-sqlite3)
-RUN pnpm install --prod
+RUN pnpm install --prod && \
+    cd node_modules/better-sqlite3 && \
+    npm run build-release
 
 # Copy source code and data
 COPY src ./src
