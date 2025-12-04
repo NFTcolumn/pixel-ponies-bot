@@ -1,4 +1,4 @@
-import User from '../../models/User.js';
+import User from '../../models/User.sqlite.js';
 import RaceService from '../../services/RaceService.js';
 
 /**

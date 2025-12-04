@@ -16,20 +16,28 @@
     "check-balance": "node scripts/checkBalance.js",
     "test-transfer": "node scripts/testTransfer.js"
   },
-  "keywords": ["telegram", "bot", "base", "ethereum", "erc20", "racing", "gambling"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "base",
+    "ethereum",
+    "erc20",
+    "racing",
+    "gambling"
+  ],
   "author": "Pixel Ponies Team",
   "license": "MIT",
   "dependencies": {
-    "ethers": "^6.9.0",
-    "node-telegram-bot-api": "^0.64.0",
-    "mongoose": "^8.0.3",
+    "better-sqlite3": "^12.5.0",
     "dotenv": "^16.3.1",
+    "ethers": "^6.9.0",
     "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.64.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
     "eslint": "^8.55.0",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2"
   }
 }

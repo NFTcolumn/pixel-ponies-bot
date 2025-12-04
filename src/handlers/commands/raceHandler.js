@@ -1,4 +1,4 @@
-import User from '../../models/User.js';
+import User from '../../models/User.sqlite.js';
 import TempSelection from '../../models/TempSelection.js';
 import RaceService from '../../services/RaceService.js';
 import PayoutService from '../../services/PayoutService.js';

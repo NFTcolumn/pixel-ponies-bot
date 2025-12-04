@@ -1,4 +1,4 @@
-import User from '../../models/User.js';
+import User from '../../models/User.sqlite.js';
 import BaseService from '../../services/BaseService.js';
 import PayoutService from '../../services/PayoutService.js';
 import { REGISTRATION_TWEET_TEMPLATE, REWARDS, LINKS, formatPonyAmount } from '../../utils/tweetTemplates.js';

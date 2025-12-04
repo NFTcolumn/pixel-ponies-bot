@@ -117,4 +117,5 @@ docker-compose.override.yml
 # Backup files
 *.backup.js
 *.backup
-backups/
+backups/data/*.db-wal
+data/*.db-shm
