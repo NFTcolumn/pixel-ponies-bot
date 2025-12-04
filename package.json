@@ -9,12 +9,14 @@
     "dev": "nodemon src/index.js",
     "lint": "eslint src/",
     "test": "jest",
+    "backup": "node scripts/backupSQLite.js",
     "backup-db": "node scripts/backupDatabase.js",
     "restore-db": "node scripts/restoreDatabase.js",
     "clear-db": "node scripts/clearDatabase.js",
     "clear-users": "node scripts/clearUsers.js",
     "check-balance": "node scripts/checkBalance.js",
-    "test-transfer": "node scripts/testTransfer.js"
+    "test-transfer": "node scripts/testTransfer.js",
+    "migrate-to-sqlite": "node scripts/migrateToSQLite.js"
   },
   "keywords": [
     "telegram",

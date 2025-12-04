@@ -6,6 +6,7 @@ import BotHandler from './handlers/BotHandler.js';
 import DataIntegrityManager from './utils/dataIntegrity.js';
 import ErrorHandler from './utils/errorHandler.js';
 import TimeUtils from './utils/timeUtils.js';
+import BackupService from './services/BackupService.js';
 
 dotenv.config();
 
@@ -14,6 +15,7 @@ class PixelPoniesBot {
     this.bot = null;
     this.botHandler = null;
     this.errorHandler = null;
+    this.backupService = null;
     this.isShuttingDown = false;
   }
 
@@ -77,6 +79,11 @@ class PixelPoniesBot {
         console.log('⚠️ Data integrity checks skipped:', err.message);
       }
 
+      // Start automated backup service
+      console.log('💾 Starting automated backup service...');
+      this.backupService = new BackupService();
+      this.backupService.start();
+
       console.log('🚀 Pixel Ponies Bot is running successfully!');
       
       // Enhanced error handling for bot polling
@@ -131,7 +138,13 @@ class PixelPoniesBot {
       if (this.botHandler) {
         await this.botHandler.shutdown();
       }
-      
+
+      // Stop backup service
+      if (this.backupService) {
+        console.log('🛑 Stopping backup service...');
+        this.backupService.stop();
+      }
+
       // Stop bot polling
       if (this.bot) {
         console.log('🛑 Stopping Telegram polling...');

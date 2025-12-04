@@ -119,3 +119,4 @@ docker-compose.override.yml
 *.backup
 backups/data/*.db-wal
 data/*.db-shm
+backups/sqlite/
